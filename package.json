@@ -7,7 +7,7 @@
     "doc": "docs"
   },
   "scripts": {
-    "start": "./node_modules/typescript/bin/tsc"
+    "build": "./node_modules/typescript/bin/tsc"
   },
   "repository": {
     "type": "git",
