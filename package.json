@@ -1,0 +1,30 @@
+{
+  "name": "stam",
+  "version": "1.0.0",
+  "description": "OpenLayers and Leaflet Layer for integrating a SensorThings server",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DataCoveEU/STAM.git"
+  },
+  "keywords": [
+    "SensorThings",
+    "Leaflet",
+    "OpenLayers"
+  ],
+  "author": "Tobias Pressler",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DataCoveEU/STAM/issues"
+  },
+  "homepage": "https://github.com/DataCoveEU/STAM#readme",
+  "devDependencies": {
+    "typescript": "^3.9.7"
+  }
+}
