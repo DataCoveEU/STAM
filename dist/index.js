@@ -1,4 +1,6 @@
 "use strict";
+//OpenLayers
+//Leaflet
 (function () {
     L.Stm = L.TileLayer.extend({
         getTileUrl: function () {
