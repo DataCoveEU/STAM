@@ -7,7 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "build": "./node_modules/typescript/bin/tsc"
+    "build": "./node_modules/rollup/dist/bin/rollup -c",
+    "watch": "./node_modules/rollup/dist/bin/rollup -c -w"
   },
   "repository": {
     "type": "git",
@@ -25,6 +26,18 @@
   },
   "homepage": "https://github.com/DataCoveEU/STAM#readme",
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^14.0.0",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^8.4.0",
+    "rollup": "^2.22.1",
+    "rollup-plugin-typescript2": "^0.27.1",
+    "rollup-plugin-uglify": "^6.0.4",
     "typescript": "^3.9.7"
+  },
+  "dependencies": {
+    "@types/leaflet": "^1.5.16",
+    "@types/openlayers": "^4.6.17",
+    "axios": "^0.19.2",
+    "whatwg-fetch": "^3.2.0"
   }
 }

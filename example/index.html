@@ -11,19 +11,47 @@
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
         integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
         crossorigin=""></script>
-    <script src="../dist/index.js"></script>
+    <script src="../dist/stam.min.js"></script>
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css" type="text/css">
     <style>
-        #mapid {
-            height: 180px;
+        .map {
+            height: 400px;
+            width: 100%;
         }
+    </style>
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
+    <style>
+
     </style>
 </head>
 
 <body>
-    <div id="mapid"></div>
+    <div id="map" class="map"></div>
     <script>
-        var map = L.map('mapid').setView([51.505, -0.09], 13);
-        L.stm().addTo(map);
+        //var stam = new STAM({});
+
+        var map = L.map('map').setView([51.505, -0.09], 13);
+
+        L.stam().addTo(map);
+
+        /**
+        var lay = stam.getOlLayer();
+
+        var map = new ol.Map({
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                }),
+                lay
+            ],
+            target: 'map',
+            view: new ol.View({
+                center: [0, 0],
+                zoom: 2
+            })
+        });
+        */
     </script>
 </body>
 

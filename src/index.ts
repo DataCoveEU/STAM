@@ -1,23 +1,168 @@
+import { STAInterface } from './STAInterface/STAInterface';
+
+declare var L: any;
+
+var api = new STAInterface({});
+
+api.getGeoJson(1).then((json: any) => {
+  console.log(json);
+});
+
+export interface QueryObject {
+
+}
+
+interface Config {
+  queryObject: QueryObject;
+}
+
 //Leaflet
-declare const L: any;
+if (L !== undefined) {
 
 
-//OpenLayers
+  (L as any).Stam = L.LayerGroup.extend({
+    initialize: function (config: any) {
+      this.on('add', function () {
+        if (this._map != undefined) {
+          var map = this._map;
 
+          map.on('layeradd', function () {
+            //Remove callback
+            map.off('layeradd');
+            //Add first layer for the given zoom level
+            this.addLayer(
+              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              })
+            );
+          });
+          //add Layer for start zoom level
 
-//Leaflet
-(function () {
-  L.Stm = L.TileLayer.extend({
-    getTileUrl: function () {
-      var i = Math.ceil(Math.random() * 4);
-      return "https://placekitten.com/256/256?image=" + i;
+          var zoom = map.getZoom();
+          map.on('moveend', function (e: any) {
+            if (map.getZoom() != zoom) {
+              zoom = map.getZoom();
+              console.log(map.getZoom());
+            }
+          });
+        }
+      });
     },
-    getAttribution: function () {
-      return "<a href='https://placekitten.com/attribution.html'>PlaceKitten</a>"
-    }
+
   });
 
-  L.stm = function () {
-    return new L.Stm();
+  (L as any).stam = function () {
+    return new (L as any).Stam();
   }
-})();
+}
+
+/*
+class STAM {
+  queryObject: Object;
+  constructor(config: Config) {
+    this.queryObject = config.queryObject;
+  }
+
+  getOlLayer() {
+    var geojsonObject = {
+      'type': 'FeatureCollection',
+      'crs': {
+        'type': 'name',
+        'properties': {
+          'name': 'EPSG:3857'
+        }
+      },
+      'features': [{
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [0, 0]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': [[4e6, -2e6], [8e6, 2e6]]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': [[4e6, 2e6], [8e6, -2e6]]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Polygon',
+          'coordinates': [[[-5e6, -1e6], [-4e6, 1e6], [-3e6, -1e6]]]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'MultiLineString',
+          'coordinates': [
+            [[-1e6, -7.5e5], [-1e6, 7.5e5]],
+            [[1e6, -7.5e5], [1e6, 7.5e5]],
+            [[-7.5e5, -1e6], [7.5e5, -1e6]],
+            [[-7.5e5, 1e6], [7.5e5, 1e6]]
+          ]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'MultiPolygon',
+          'coordinates': [
+            [[[-5e6, 6e6], [-5e6, 8e6], [-3e6, 8e6], [-3e6, 6e6]]],
+            [[[-2e6, 6e6], [-2e6, 8e6], [0, 8e6], [0, 6e6]]],
+            [[[1e6, 6e6], [1e6, 8e6], [3e6, 8e6], [3e6, 6e6]]]
+          ]
+        }
+      }, {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'GeometryCollection',
+          'geometries': [{
+            'type': 'LineString',
+            'coordinates': [[-5e6, -5e6], [0, -5e6]]
+          }, {
+            'type': 'Point',
+            'coordinates': [4e6, -5e6]
+          }, {
+            'type': 'Polygon',
+            'coordinates': [[[1e6, -6e6], [2e6, -4e6], [3e6, -6e6]]]
+          }]
+        }
+      }]
+    };
+
+    var vectorSource = new ol.source.Vector({
+      features: (new ol.format.GeoJSON()).readFeatures(geojsonObject)
+    });
+
+    vectorSource.addFeature(new ol.Feature(new ol.geom.Circle([5e6, 7e6], 1e6)));
+
+    var vectorLayer = new ol.layer.Vector({
+      source: vectorSource,
+    });
+
+    return vectorLayer;
+  }
+
+  //Leaflet function
+  addTo(map: any) {
+    var layer = L.TileLayer.extend({
+      getTileUrl: function () {
+        var i = Math.ceil(Math.random() * 4);
+        return "https://placekitten.com/256/256?image=" + i;
+      },
+      getAttribution: function () {
+        return "<a href='https://placekitten.com/attribution.html'>PlaceKitten</a>"
+      }
+    });
+    var x = new layer();
+    (new layer()).addTo(map);
+  }
+}
+//OpenLayers
+
+ */
