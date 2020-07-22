@@ -11,7 +11,7 @@
     ]
   },
   "include": [
-    "src/**/*", "rollup.config.js", "node_modules/axios"
+    "src/**/*", "rollup.config.js", "node_modules/*"
   ],
   "exclude": ["node_modules"]
 }
