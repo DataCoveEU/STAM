@@ -1,4 +1,4 @@
-imimport { QueryObject } from "../index";
+import { QueryObject } from "../index";
 
 export class QueryGenerator {
   queryObject: QueryObject;
