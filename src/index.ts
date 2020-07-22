@@ -1,19 +1,23 @@
 import { STAInterface } from './STAInterface/STAInterface';
+import { MapInterface } from './MapInterface/MapInterface';
+
 
 declare var L: any;
 
-var api = new STAInterface({});
-
-api.getGeoJson(1).then((json: any) => {
-  console.log(json);
-});
-
 export interface QueryObject {
-
+  [key: string]: Array<String> | String | Array<QueryObject> | Number | Boolean,
+  entityType: String,
+  filter?: String,
+  select?: Array<String>,
+  expand?: Array<QueryObject>
+  top?: Number,
+  skip?: Number,
+  count?: Boolean
 }
 
-interface Config {
+export interface Config {
   queryObject: QueryObject;
+  baseUrl: String
 }
 
 //Leaflet
@@ -21,7 +25,8 @@ if (L !== undefined) {
 
 
   (L as any).Stam = L.LayerGroup.extend({
-    initialize: function (config: any) {
+    initialize: function (config: Config) {
+      var mapInterface = new MapInterface(config);
       this.on('add', function () {
         if (this._map != undefined) {
           var map = this._map;
@@ -29,8 +34,14 @@ if (L !== undefined) {
           map.on('layeradd', function () {
             //Remove callback
             map.off('layeradd');
+            var bounds = map.getBounds();
+            mapInterface.getLayerData(1, [bounds._northEast.lat, bounds._northEast.lng, bounds._southWest.lat, bounds._southWest.lng]).then((data: any) => {
+
+            });
+
             //Add first layer for the given zoom level
             this.addLayer(
+
               L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               })
@@ -52,7 +63,18 @@ if (L !== undefined) {
   });
 
   (L as any).stam = function () {
-    return new (L as any).Stam();
+    return new (L as any).Stam(<Config>{
+      baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+      queryObject: <QueryObject>{
+        count: true,
+        skip: 0,
+        entityType: 'Things',
+        filter: null,
+        select: null,
+        expand: null,
+        top: 0
+      }
+    });
   }
 }
 
