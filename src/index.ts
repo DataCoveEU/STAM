@@ -35,8 +35,10 @@ if (L !== undefined) {
             //Remove callback
             map.off('layeradd');
             var bounds = map.getBounds();
-            mapInterface.getLayerData(1, [bounds._northEast.lat, bounds._northEast.lng, bounds._southWest.lat, bounds._southWest.lng]).then((data: any) => {
-
+            var data = mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
+              this.addLayer(
+                L.geoJSON(data)
+              );
             });
 
             //Add first layer for the given zoom level

@@ -9,8 +9,16 @@ export class MapInterface {
     this.api = new STAInterface(config.queryObject, config.baseUrl);
   }
 
-  async getLayerData(zoom: Number, boundingBox: Array<Number>) {
-    var data = await this.api.getGeoJson(zoom, boundingBox);
-    console.log(data);
+  async getLayerData(zoom: number, boundingBox: Array<number>) {
+    var data: any = await this.api.getGeoJson(zoom, boundingBox);
+
+    var locations = data.value.map((data: any) => { return data.Locations[0].location });
+    var geojson = {
+      'type': 'FeatureCollection',
+      'features': locations
+    };
+    console.log(geojson);
+
+    return geojson;
   }
 }
