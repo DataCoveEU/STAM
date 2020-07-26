@@ -14,7 +14,7 @@ export default {
         commonjs(),
         nodeResolve(),
         typescript( /*{ plugin options }*/ ),
-        uglify(),
+        //uglify(),
         json()
     ],
     output: {

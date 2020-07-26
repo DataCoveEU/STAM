@@ -22,8 +22,7 @@ export interface Config {
 
 //Leaflet
 if (L !== undefined) {
-
-
+  var layers: any = [];
   (L as any).Stam = L.LayerGroup.extend({
     initialize: function (config: Config) {
       var mapInterface = new MapInterface(config);
@@ -35,28 +34,33 @@ if (L !== undefined) {
             //Remove callback
             map.off('layeradd');
             var bounds = map.getBounds();
-            var data = mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
-              this.addLayer(
-                L.geoJSON(data)
-              );
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
+              var l = L.geoJSON(data, {
+                onEachFeature: (feature: any, layer: any) => {
+                  layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                }
+              });
+              layers.push(l);
+              this.addLayer(l);
             });
-
-            //Add first layer for the given zoom level
-            this.addLayer(
-
-              L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              })
-            );
           });
           //add Layer for start zoom level
 
           var zoom = map.getZoom();
           map.on('moveend', function (e: any) {
-            if (map.getZoom() != zoom) {
-              zoom = map.getZoom();
-              console.log(map.getZoom());
-            }
+            var bounds = map.getBounds();
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
+              var l = L.geoJSON(data, {
+                onEachFeature: (feature: any, layer: any) => {
+                  layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                }
+              });
+              layers.forEach((layer: any) => {
+                layer.remove();
+              });
+              layers.push(l);
+              this.addLayer(l);
+            });
           });
         }
       });
