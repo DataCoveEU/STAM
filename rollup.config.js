@@ -1,7 +1,8 @@
 import typescript from 'rollup-plugin-typescript2';
 import {
-    uglify
-} from "rollup-plugin-uglify";
+    terser
+} from "rollup-plugin-terser";
+
 import {
     nodeResolve
 } from '@rollup/plugin-node-resolve';
@@ -14,7 +15,7 @@ export default {
         commonjs(),
         nodeResolve(),
         typescript( /*{ plugin options }*/ ),
-        //uglify(),
+        terser(),
         json()
     ],
     output: {

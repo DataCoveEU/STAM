@@ -88,9 +88,7 @@ export class MapInterface {
           geo = `geo.intersects(Locations/location,geography'POLYGON ((${poly1[0][0].map((el: any) => { return el.join(' ') }).join(',')})) ')`;
         else
           geo = 'FALSE'
-
       } else {
-
         geo = `geo.intersects(Locations/location,geography'POLYGON ((${topx} ${topy}, ${topx} ${bottomy}, ${bottomx} ${bottomy}, ${bottomx} ${topy} ,${topx} ${topy}))')`;
       }
 
@@ -101,7 +99,7 @@ export class MapInterface {
       }
     }
 
-    correctedQuery.top = 10000;
+    correctedQuery.top = 1000;
 
     var data: any = await this.api.getGeoJson(correctedQuery);
 
@@ -169,6 +167,10 @@ export class MapInterface {
 
       if (!markerQuery.expand) markerQuery.expand = [];
 
+      if (!markerQuery.expand.includes((expand: QueryObject) => { return expand.entityType == 'Datastreams' })) {
+        markerQuery.expand.push(<QueryObject>{ entityType: "Datastreams" });
+      }
+
       if (!markerQuery.expand.includes((expand: QueryObject) => { return expand.entityType == 'Location' })) {
         markerQuery.expand.push(<QueryObject>{ entityType: "Locations" });
       }
@@ -184,7 +186,7 @@ export class MapInterface {
 
       markers.value.forEach((marker: any) => {
         var geoJson = marker.Locations[0].location;
-        geoJson.properties = marker.properties;
+        geoJson.properties = JSON.parse(JSON.stringify(marker));
         osmQuads.push(geoJson);
       });
     }

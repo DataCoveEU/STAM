@@ -10,6 +10,10 @@ export class QueryGenerator {
     var url: String = this.queryObject.entityType;
     var prefix: Array<String> = [];
 
+    if (this.queryObject.id) {
+      return `${this.queryObject.entityType}(${this.queryObject.id})`
+    }
+
 
     for (var key in this.queryObject) {
       if (!this.queryObject[key]) continue;

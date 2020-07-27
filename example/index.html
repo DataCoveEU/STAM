@@ -37,7 +37,18 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        L.stam().addTo(map);
+        L.stam({
+            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            queryObject: {
+                count: true,
+                skip: 0,
+                entityType: 'Things',
+                filter: null,
+                select: null,
+                expand: null,
+                top: 0
+            }
+        }).addTo(map);
 
         /**
         var lay = stam.getOlLayer();

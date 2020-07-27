@@ -1,5 +1,6 @@
 import { STAInterface } from './STAInterface/STAInterface';
 import { MapInterface } from './MapInterface/MapInterface';
+import { marker } from 'leaflet';
 
 
 declare var L: any;
@@ -12,17 +13,20 @@ export interface QueryObject {
   expand?: Array<QueryObject>
   top?: Number,
   skip?: Number,
-  count?: Boolean
+  count?: Boolean,
+  id?: Number
 }
 
 export interface Config {
   queryObject: QueryObject;
-  baseUrl: String
+  baseUrl: String,
+  style?: Function | object
 }
 
 //Leaflet
 if (L !== undefined) {
   var layers: any = [];
+  var countLayer: any;
   (L as any).Stam = L.LayerGroup.extend({
     initialize: function (config: Config) {
       var mapInterface = new MapInterface(config);
@@ -33,11 +37,22 @@ if (L !== undefined) {
           map.on('layeradd', function () {
             //Remove callback
             map.off('layeradd');
+            countLayer = L.layerGroup();
+            this.addLayer(countLayer);
             var bounds = map.getBounds();
             mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
               var l = L.geoJSON(data, {
                 onEachFeature: (feature: any, layer: any) => {
-                  layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                  if (feature.geometry?.type == 'Polygon') {
+                    var bounds = layer.getBounds();
+                    var lat = (bounds._northEast.lat + bounds._southWest.lat) / 2;
+                    var lng = (bounds._northEast.lng + bounds._southWest.lng) / 2;
+                    countLayer.addLayer(L.circleMarker(L.latLng(lat, lng), {
+                      radius: zoom * 2
+                    }));
+                  } else {
+                    layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                  }
                 }
               });
               layers.push(l);
@@ -48,11 +63,24 @@ if (L !== undefined) {
 
           var zoom = map.getZoom();
           map.on('moveend', function (e: any) {
+            if (zoom != map.getZoom()) {
+              countLayer.clearLayers();
+              zoom = map.getZoom();
+            }
             var bounds = map.getBounds();
             mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
               var l = L.geoJSON(data, {
                 onEachFeature: (feature: any, layer: any) => {
-                  layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                  if (feature.geometry?.type == 'Polygon') {
+                    var bounds = layer.getBounds();
+                    var lat = (bounds._northEast.lat + bounds._southWest.lat) / 2;
+                    var lng = (bounds._northEast.lng + bounds._southWest.lng) / 2;
+                    countLayer.addLayer(L.circleMarker(L.latLng(lat, lng), {
+                      radius: zoom * 2
+                    }));
+                  } else {
+                    layer.bindPopup(`<b>${JSON.stringify(feature.properties)}</b>`);
+                  }
                 }
               });
               layers.forEach((layer: any) => {
@@ -68,19 +96,8 @@ if (L !== undefined) {
 
   });
 
-  (L as any).stam = function () {
-    return new (L as any).Stam(<Config>{
-      baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-      queryObject: <QueryObject>{
-        count: true,
-        skip: 0,
-        entityType: 'Things',
-        filter: null,
-        select: null,
-        expand: null,
-        top: 0
-      }
-    });
+  (L as any).stam = function (config: Config) {
+    return new (L as any).Stam(config);
   }
 }
 
