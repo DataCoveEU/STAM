@@ -11,7 +11,7 @@
     <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
         integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
         crossorigin=""></script>
-    <script src="../dist/stam.min.js"></script>
+
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css" type="text/css">
     <style>
@@ -21,24 +21,31 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
-    <style>
-
-    </style>
+    <script src="../dist/stam.min.js"></script>
 </head>
 
 <body>
     <div id="map" class="map"></div>
+    <div id="mapOl" class="map"></div>
     <script>
-        //var stam = new STAM({});
+        var map = new ol.Map({
+            layers: [
+                new ol.layer.Tile({
+                    source: new ol.source.OSM(),
+                }),
 
-        var map = L.map('map').setView([50.27264, 7.26469], 8);
+            ],
+            target: 'mapOl',
+            view: new ol.View({
+                center: [808701.59, 6493626.85],
+                zoom: 8,
+            }),
+        });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        L.stam({
+        map.addLayer(new ol.layer.STAM({
             baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            MarkerStyle: "yellow",
+            map,
             queryObject: {
                 count: true,
                 skip: 0,
@@ -48,25 +55,29 @@
                 expand: null,
                 top: 0
             }
-        }).addTo(map);
+        }));
+        //var stam = new STAM({});
 
-        /**
-        var lay = stam.getOlLayer();
 
-        var map = new ol.Map({
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM()
-                }),
-                lay
-            ],
-            target: 'map',
-            view: new ol.View({
-                center: [0, 0],
-                zoom: 2
-            })
-        });
-        */
+        var map2 = L.map('map').setView([50.27264, 7.26469], 8);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map2);
+
+        L.stam({
+            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            MarkerStyle: "yellow",
+            queryObject: {
+                count: true,
+                skip: 0,
+                entityType: 'Things',
+                filter: null,
+                select: null,
+                expand: null,
+                top: 0
+            }
+        }).addTo(map2);
     </script>
 </body>
 

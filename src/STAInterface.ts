@@ -1,6 +1,6 @@
 import 'whatwg-fetch'
-import { QueryObject } from './../index';
-import { QueryGenerator } from '../QueryGenerator/QueryGenerator';
+import { QueryObject } from './index';
+import { QueryGenerator } from './QueryGenerator';
 
 export class STAInterface {
   baseUrl: String;
