@@ -1,8 +1,7 @@
 import { STAInterface } from './STAInterface';
 import { MapInterface } from './MapInterface';
-import { marker, map } from 'leaflet';
 import { colorMarkers, textToMarker } from './leaflet/markers';
-import { color } from 'openlayers';
+
 
 
 declare var L: any;
@@ -71,11 +70,17 @@ if (typeof L !== "undefined") {
             highlight = null;
           }
 
-          var first: number;
+          var clearCluster: boolean;
 
+          var map = this._map;
+
+          var zoom = map.getZoom();
 
           var onEachFeature = (feature: any, layer: any) => {
-            if (first != zoom) { countLayer.clearLayers(); first = zoom; }
+            if (clearCluster) {
+              countLayer.clearLayers();
+              clearCluster = false;
+            }
             if (feature.geometry?.type == 'Polygon') {
               //Adding marker
               layer.on('mouseover', function () {
@@ -126,34 +131,32 @@ if (typeof L !== "undefined") {
             return marker;
           }
 
-          var map = this._map;
-
           map.on('layeradd', function () {
             //Remove callback
             map.off('layeradd');
             countLayer = L.layerGroup();
             this.addLayer(countLayer);
             var bounds = map.getBounds();
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
-              var l = L.geoJSON(data, {
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((geojson: any) => {
+              var geoJsonLayer = L.geoJSON(geojson, {
                 onEachFeature,
                 pointToLayer,
                 style: config.ClusterStyle
               });
-              layers.push(l);
-              this.addLayer(l);
+              layers.push(geoJsonLayer);
+              this.addLayer(geoJsonLayer);
             });
           });
-          //add Layer for start zoom level
 
-          var zoom = map.getZoom();
+
           map.on('moveend', function (e: any) {
             if (zoom != map.getZoom()) {
               zoom = map.getZoom();
             }
+            clearCluster = true;
             var bounds = map.getBounds();
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((data: any) => {
-              var l = L.geoJSON(data, {
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((geojson: any) => {
+              var geoJsonLayer = L.geoJSON(geojson, {
                 onEachFeature,
                 pointToLayer,
                 style: config.ClusterStyle
@@ -161,8 +164,8 @@ if (typeof L !== "undefined") {
               layers.forEach((layer: any) => {
                 layer.remove();
               });
-              layers.push(l);
-              this.addLayer(l);
+              layers.push(geoJsonLayer);
+              this.addLayer(geoJsonLayer);
             });
           });
         }
@@ -175,7 +178,7 @@ if (typeof L !== "undefined") {
     return new (L as any).Stam(config);
   }
 
-  //Adding custom css to head
+  //Adding custom css to head, so that the count tooltipp's background is transparent
   var css = '.leaflet-tooltip.count {background-color: transparent;border: transparent;  box-shadow: none;  font-weight: bold;font-size: 20px;}',
     head = document.head || document.getElementsByTagName('head')[0],
     style: any = document.createElement('style');
@@ -192,30 +195,86 @@ if (typeof L !== "undefined") {
 }
 
 if (typeof ol != "undefined") {
+
+  //Since ol 6 ol.inherits was removed
   var ol_ext_inherits = function (child: any, parent: any) {
     child.prototype = Object.create(parent.prototype);
     child.prototype.constructor = child;
   };
 
+  var zoom: number;
+  //Contains all layers that where added by the library, this.getLayers() returns all layers
+  var olLayers: any = [];
+
+  var olmap: any;
+
+  /**
+   * STAM implementation for openLayers
+   * @param config STAM configuration object
+   */
   var ol_layer_stam = function (config: Config) {
+    //Get map instance from config
+    olmap = config.map;
+
+    //Init LayerGroup
     ol.layer.Group.call(this, config);
+
+    //Get current zoom level and remove all decimal places
+    zoom = olmap.getView().getZoom().toFixed(0);
 
     var mapInterface = new MapInterface(config);
 
+    //Add listener to moveend, called when moving and zooming;
+    olmap.on("moveend", function () {
+      //Check if zoom level was changed
+      if (zoom != olmap.getView().getZoom()) {
+        zoom = olmap.getView().getZoom().toFixed(0);
+      }
+
+      //always add new layer, because the geojson is cached inside MapInterface.ts
+      addSTAMLayer(config, mapInterface, zoom).then(function (layer: any) {
+        this.getLayers().array_.push(layer);
+
+        this.changed();
+
+        this.getLayers().array_ = this.getLayers().array_.filter(function (layer: any) {
+          if (olLayers.indexOf(layer) != -1) {
+            return false;
+          }
+          return true;
+        }.bind(this));
+
+        olmap.render();
+
+        olLayers = [];
+
+        olLayers.push(layer);
+
+
+      }.bind(this));
+    });
+  };
+  ol_ext_inherits(ol_layer_stam, ol.layer.Group);
+
+  ol.layer.STAM = ol_layer_stam
+}
+function addSTAMLayer(config: Config, mapInterface: MapInterface, zoom: number) {
+  return new Promise(function (resolve, reject) {
     var bounds;
-    if (config.map.getView().getProjection().code_ == "EPSG:4326")
-      bounds = config.map.getView().calculateExtent();
+    if (olmap.getView().getProjection().code_ == "EPSG:4326")
+      bounds = olmap.getView().calculateExtent();
     else {
-      var zw = config.map.getView().calculateExtent();
+      var zw = olmap.getView().calculateExtent();
+      var code = olmap.getView().getProjection().getCode();
       bounds = [];
-      bounds.push(...ol.proj.toLonLat([zw[2], zw[3]]));
-      bounds.push(...ol.proj.toLonLat([zw[0], zw[1]]));
+      bounds.push(...(new ol.geom.Point([zw[2], zw[3]])).transform(code, 'EPSG:4326').getCoordinates());
+      bounds.push(...(new ol.geom.Point([zw[0], zw[1]])).transform(code, 'EPSG:4326').getCoordinates());
     }
 
-    console.log(bounds);
 
+    mapInterface.getLayerData(zoom, bounds).then((data: any) => {
 
-    mapInterface.getLayerData(8, bounds).then((data: any) => {
+      console.log(data);
 
       var vectorSource = new ol.source.Vector({
         features: new ol.format.GeoJSON().readFeatures(data, { featureProjection: "EPSG:3857" }),
@@ -227,12 +286,8 @@ if (typeof ol != "undefined") {
         source: vectorSource,
       });
 
-      config.map.addLayer(vectorLayer);
-
-      // this.getLayers().array_.push(vectorLayer);
+      resolve(vectorLayer);
     });
-  };
-  ol_ext_inherits(ol_layer_stam, ol.layer.Group);
-
-  ol.layer.STAM = ol_layer_stam
+  });
 }
+

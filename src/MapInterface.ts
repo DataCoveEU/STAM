@@ -5,22 +5,21 @@ import {
 import {
   STAInterface
 } from './STAInterface';
+// @ts-ignore
 import * as p from 'polygon-clipping';
-import {
-  marker
-} from 'leaflet';
-import {
-  QueryGenerator
-} from './QueryGenerator';
 const poly = (p as any).default;
+
+//@ts-ignore
+import * as turf from '@turf/turf'
+
+
 
 export class MapInterface {
   config: Config;
   api: STAInterface;
+  //Stores the cached geojson
   cache: any;
-  loadedQuads: any;
   constructor(config: Config) {
-    this.loadedQuads = {};
     this.cache = {};
     this.config = config;
     this.api = new STAInterface(config.baseUrl);
@@ -87,7 +86,9 @@ export class MapInterface {
 
   async getLayerData(zoom: number, boundingBox: Array<number>) {
 
+
     var correctedQuery = JSON.parse(JSON.stringify(this.config.queryObject));
+
 
     if (correctedQuery.entityType == 'Things') {
       correctedQuery.select = ['id'];
@@ -108,7 +109,7 @@ export class MapInterface {
 
     var geo;
 
-    if (this.loadedQuads[zoom]) {
+    if (this.cache[zoom]) {
       var poly1: any = [
         [
           [topx, topy],
@@ -119,18 +120,24 @@ export class MapInterface {
         ]
       ];
 
-
-      this.loadedQuads[zoom].forEach((element: any) => {
-        poly1 = poly.difference(poly1, [element]);
+      var onlyPolys: any = this.cache[zoom].features.filter((geo: any) => {
+        return geo.properties.count;
       });
 
-      if (poly1[0])
-        geo = `geo.intersects(${correctedQuery.entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${poly1[0][0].map((el: any) => { return el.join(' ') }).join(',')})) ')`;
-      else
-        return [];
+      onlyPolys = onlyPolys.map((geo: any) => {
+        return geo.geometry.coordinates;
+      });
+
+      var substracted = poly.difference(poly1, ...onlyPolys);
+
+      if (substracted[0]) {
+        geo = polygonToFilter(substracted, correctedQuery.entityType);
+      } else
+        return this.cache[zoom];
     } else {
       geo = `geo.intersects(${correctedQuery.entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${topx} ${topy}, ${topx} ${bottomy}, ${bottomx} ${bottomy}, ${bottomx} ${topy} ,${topx} ${topy}))')`;
     }
+
 
     if (correctedQuery.filter) {
       correctedQuery.filter = `(${correctedQuery.filter}) and ${geo}`;
@@ -141,40 +148,42 @@ export class MapInterface {
 
     correctedQuery.top = 1000;
 
-    var data: any = await this.api.getGeoJson(correctedQuery);
+    var data: any;
 
-    var locations;
-    if (correctedQuery.entityType == 'Things') {
-      locations = data.value.map((data: any) => {
-        return data.Locations[0].location
-      });
-    } else {
-      locations = data.value.map((data: any) => {
-        return data.feature
-      });
-    }
+    data = await this.api.getGeoJson(correctedQuery);
 
-    var osmQuads: any = [];
-
-    //Check if GeoJson Type is point, if not the GeoJson is not beeing changed
-    if (locations[0] && locations[0].type == "Point") {
-      ({ locations, osmQuads } = await this.cluster(locations, zoom, osmQuads));
-    } else {
-      osmQuads = locations;
-    }
-
-    if (this.cache[zoom])
-      this.cache[zoom].features.push(...osmQuads);
-    else
+    if (!this.cache[zoom]) {
       this.cache[zoom] = {
-        'type': 'FeatureCollection',
-        'features': osmQuads,
-      };
+        "type": "FeatureCollection",
+        "features": []
+      }
+    }
+
+
+    if (data) {
+      var locations;
+      if (correctedQuery.entityType == 'Things') {
+        locations = data.value.map((data: any) => {
+          return data.Locations[0].location
+        });
+      } else {
+        locations = data.value.map((data: any) => {
+          return data.feature
+        });
+      }
+
+      //Check if GeoJson Type is point, if not the GeoJson is not beeing changed
+      if (locations[0] && locations[0].type == "Point") {
+        await this.cluster(locations, zoom);
+      } else {
+        this.cache[zoom].features.push(...locations);
+      }
+    }
 
     return this.cache[zoom];
   }
 
-  private async cluster(locations: any, zoom: number, osmQuads: any) {
+  private async cluster(locations: any, zoom: number) {
     locations = locations.map((location: any) => {
       var top = this.coordinatesToOsm({
         x: location.coordinates[0],
@@ -205,30 +214,35 @@ export class MapInterface {
       return obj;
     });
 
+    var tiles: any = [];
 
-    locations.forEach((element: any) => {
-      var existing = osmQuads.find((geo: any) => {
-        return geo.geometry.coordinates[0][0][0] == element.geometry.coordinates[0][0][0] && geo.geometry.coordinates[0][0][1] == element.geometry.coordinates[0][0][1];
+    locations.forEach((feature: any) => {
+      var existing = tiles.find((feature2: any) => {
+        return compare_features(feature, feature2);
       });
 
       if (!existing) {
-        osmQuads.push(element);
-        if (!this.loadedQuads[zoom])
-          this.loadedQuads[zoom] = [];
-        this.loadedQuads[zoom].push(element.geometry.coordinates);
+        tiles.push(feature);
       }
       else {
         existing.properties.count = existing.properties.count + 1;
       }
     });
 
+    //Filter out all existing tiles
+    tiles = tiles.filter((feature: any) => {
+      return !this.cache[zoom].features.some((feature2: any) => {
+        return compare_features(feature, feature2);
+      })
+    });
+
     //Getting all markers
     var toMarker: any = [];
 
-    osmQuads = osmQuads.filter((geo: any) => {
+    tiles = tiles.filter((geo: any) => {
       //TODO use config
       if (geo.properties.count < 5) {
-        toMarker.push(geo);
+        toMarker.push([geo.geometry.coordinates]);
         return false;
       }
       else {
@@ -236,57 +250,100 @@ export class MapInterface {
       }
     });
 
-    var combine: any;
+    //Push tiles to cache
+    this.cache[zoom].features.push(...tiles);
 
-    toMarker.forEach((elem: any, index: number) => {
-      if (index == 0)
-        return combine = elem.geometry.coordinates;
-      combine = poly.union(combine, [elem.geometry.coordinates]);
-    });
+    if (toMarker.length != 0) {
+      var combine: any = poly.union(...toMarker);
 
-    if (combine) {
+      if (combine) {
 
-      var markerQuery = JSON.parse(JSON.stringify(this.config.queryObject));
+        var markerQuery = JSON.parse(JSON.stringify(this.config.queryObject));
 
-      if (!markerQuery.expand)
-        markerQuery.expand = [];
+        if (!markerQuery.expand)
+          markerQuery.expand = [];
 
-      if (!markerQuery.expand.includes((expand: QueryObject) => {
-        return expand.entityType == 'Datastreams';
-      })) {
-        markerQuery.expand.push(<QueryObject>{
-          entityType: "Datastreams",
-          select: ["id", "name"]
-        });
-      }
-
-      if (!markerQuery.expand.includes((expand: QueryObject) => {
-        return expand.entityType == 'Location';
-      })) {
-        markerQuery.expand.push(<QueryObject>{
-          entityType: "Locations",
-        });
-      }
-
-      if (markerQuery.filter)
-        markerQuery.filter = `(${markerQuery.filter}) and `;
-
-      markerQuery.filter = markerQuery.filter ? markerQuery.filter : '' + combine.map((e: any) => {
-        return `geo.intersects(Locations/location,geography'POLYGON ((${(e[0][0][0] ? e[0] : e).map((array: any) => { return array.join(' '); }).join(',')}))')`;
-      }).join(' or ');
-
-
-      var markers: any = await this.api.getGeoJson(markerQuery);
-
-      markers.value.forEach((marker: any) => {
-        var geoJson = marker.Locations[0].location;
-        delete marker.Locations;
-        geoJson.properties = marker;
-        for (var datastream in marker.Datastreams) {
+        if (!markerQuery.expand.some((expand: QueryObject) => {
+          return expand.entityType == 'Datastreams';
+        })) {
+          markerQuery.expand.push(<QueryObject>{
+            entityType: "Datastreams",
+            select: ["id", "name"]
+          });
         }
-        osmQuads.push(geoJson);
-      });
+
+        if (!markerQuery.expand.some((expand: QueryObject) => {
+          return expand.entityType == 'Location';
+        })) {
+          markerQuery.expand.push(<QueryObject>{
+            entityType: "Locations",
+          });
+        }
+
+        if (markerQuery.filter)
+          markerQuery.filter = `(${markerQuery.filter}) and `;
+
+        markerQuery.filter = markerQuery.filter ? markerQuery.filter : '' + polygonToFilter(combine, markerQuery.entityType);
+
+
+        var markers: any = await this.api.getGeoJson(markerQuery);
+
+        markers.value.forEach((marker: any) => {
+          var geoJson = marker.Locations[0].location;
+          delete marker.Locations;
+          geoJson.properties = marker;
+          for (var datastream in marker.Datastreams) {
+          }
+          if (!this.cache[zoom].features.some((feature: any) => {
+            return compare_features(geoJson, feature);
+          })) {
+            this.cache[zoom].features.push(geoJson);
+          }
+        });
+      }
     }
-    return { locations, osmQuads };
   }
+}
+
+/**
+ * 
+ * @param f1 feature to be compared
+ * @param f2 feature to be compared
+ * @returns true if the features are the same
+ */
+function compare_features(f1: any, f2: any): boolean {
+  //Check if the type is the same
+  if (f1.type != f2.type) return false;
+
+  //If feature is a point, the coordinates can be compared directly
+  if (f1.type == "Point") return polygon_compare(f1.coordinates, f2.coordinates);
+
+  //If it is a polygon or something else, the coordinates need to be gotten from the geometry object
+  return polygon_compare(f1.geometry.coordinates, f2.geometry.coordinates);
+}
+
+/**
+ * Deep comparing two arrays
+ * @param a1 Array to be compared
+ * @param a2 Array to be compared
+ * @returns true if the same
+ */
+function polygon_compare(a1: any, a2: any): boolean {
+  return JSON.stringify(a1) === JSON.stringify(a2);
+}
+
+/**
+ * Converts a polygon into a valid filter for a sensorthings API
+ * @param multipolygon polgon or multipolygon to convert
+ * @returns valid filter
+ */
+function polygonToFilter(multipolygon: any, entityType: string): string {
+  return multipolygon.map((polygon: any) => {
+    //Check if polygon is a multipolygon
+    if (polygon[0][0][0] != undefined) {
+      //Multipolygon
+      polygon = polygon[0];
+    }
+    return `geo.intersects(${entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${polygon.map((array: any) => { return array.join(' '); }).join(',')}))')`;
+  }).join(' or ');
 }
