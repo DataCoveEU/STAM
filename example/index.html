@@ -44,16 +44,21 @@
 
         map.addLayer(new ol.layer.STAM({
             baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            //baseUrl: "https://lubw-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             MarkerStyle: "yellow",
             map,
+            clusterMin: 5,
             queryObject: {
                 count: true,
                 skip: 0,
                 entityType: 'Things',
-                filter: null,
+                // filter: "startswith(name,'Abzugsgraben')",
                 select: null,
-                expand: null,
-                top: 0
+                /* expand: [{
+                    entityType: "Datastreams",
+                    select: ["name"]
+                }], */
+                top: 20000
             }
         }));
         //var stam = new STAM({});
@@ -68,6 +73,7 @@
                 L.stam({
                     baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
                     MarkerStyle: "yellow",
+                    clusterMin: 5,
                     queryObject: {
                         count: true,
                         skip: 0,

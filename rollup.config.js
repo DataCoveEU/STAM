@@ -14,8 +14,8 @@ export default {
     plugins: [
         commonjs(),
         nodeResolve(),
-        typescript( /*{ plugin options }*/ ),
-        //terser(),
+        typescript(),
+        terser(),
         json()
     ],
     output: {

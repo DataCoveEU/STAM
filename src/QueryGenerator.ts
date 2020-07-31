@@ -1,17 +1,30 @@
 import { QueryObject } from "./index";
 
+/**
+ * Used for creating a link from a QueryObject
+ */
 export class QueryGenerator {
   queryObject: QueryObject;
   constructor(query: QueryObject) {
     this.queryObject = query;
   }
 
+  /**
+   * Returns a string for a sensorthings server query
+   * @param main defaults to true, used for specifying if the queries should be appended to the end or added inside the brackets
+   * @returns link prefix
+   */
   toString(main: Boolean = true) {
     var url: String = this.queryObject.entityType;
     var prefix: Array<String> = [];
 
     if (this.queryObject.id) {
-      return `${this.queryObject.entityType}(${this.queryObject.id})`
+      if (main) {
+        url = `${url}(${this.queryObject.id})`
+        delete this.queryObject.id;
+      } else {
+        return `${this.queryObject.entityType}(${this.queryObject.id})`
+      }
     }
 
 
@@ -40,7 +53,7 @@ export class QueryGenerator {
     if (main) {
       return `${url}?${prefix.map(encodeURI).join('&')}`;
     } else {
-      return `${url}(${prefix.map(encodeURI).join(',')})`;
+      return `${url}(${prefix.map(encodeURI).join(';')})`;
     }
   }
 }
