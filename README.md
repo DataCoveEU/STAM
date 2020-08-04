@@ -35,12 +35,6 @@ Download the [minified file](https://raw.githubusercontent.com/DataCoveEU/STAM/m
 
 TypeScript is supported internally within each module, no installs required.
 
-## ✍️ Authors <a name = "authors"></a>
-
-- [@kylelobo](https://github.com/kylelobo) - Idea & Initial work
-
-See also the list of [contributors](https://github.com/kylelobo/The-Documentation-Compendium/contributors) who participated in this project.
-
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
