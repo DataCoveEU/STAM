@@ -1,0 +1,25 @@
+{
+  "projectName": "STAM",
+  "projectOwner": "DataCoveEU",
+  "repoType": "github",
+  "repoHost": "",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "none",
+  "contributors": [
+    {
+      "login": "TobiasPressler",
+      "name": "TobiasPressler",
+      "avatar_url": "https://avatars3.githubusercontent.com/u/47741525?v=4",
+      "profile": "https://github.com/TobiasPressler",
+      "contributions": [
+        "code",
+        "doc"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7
+}
