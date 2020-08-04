@@ -319,7 +319,7 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number) {
     var bounds;
 
     //Check it the projection is EPSG 4326
-    if (olmap.getView().getProjection().code_ == "EPSG:4326")
+    if (olmap.getView().getProjection().getCode() == "EPSG:4326")
       bounds = olmap.getView().calculateExtent();
     else {
       //If not convert the bounding box to EPSG 4326
