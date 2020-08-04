@@ -17,3 +17,7 @@ If new data is requested, when the view changed, the getLayerData method is call
 ## STAInterface
 
 Is used for querying a sensorthings server that may return 'next' links
+
+## laeflet/markers.ts
+
+This file contains the definition of 8 different colored markers for Leaflet.
