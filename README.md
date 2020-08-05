@@ -35,6 +35,45 @@ Download the [minified file](https://raw.githubusercontent.com/DataCoveEU/STAM/m
 
 TypeScript is supported internally within each module, no installs required.
 
+## Usage
+
+### Leaflet
+
+```js
+L.stam({
+    baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+    MarkerStyle: "yellow",
+    clusterMin: 5,
+    queryObject: {
+        count: true,
+        skip: 0,
+        entityType: 'Things',
+        filter: null,
+        select: null,
+        expand: null,
+        top: 0
+    }
+})
+```
+
+### OpenLayers
+
+```js
+new ol.layer.STAM({
+    baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+    MarkerStyle: "yellow",
+    map,
+    clusterMin: 5,
+    queryObject: {
+        count: true,
+        skip: 0,
+        entityType: 'Things',
+        select: null,
+        top: 20000
+    }
+})
+```
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
