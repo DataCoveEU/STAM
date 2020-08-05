@@ -35,9 +35,9 @@ Download the [minified file](https://raw.githubusercontent.com/DataCoveEU/STAM/m
 
 TypeScript is supported internally within each module, no installs required.
 
-## Usage
+### Usage
 
-### Leaflet
+#### Leaflet
 
 ```js
 L.stam({
@@ -56,7 +56,7 @@ L.stam({
 })
 ```
 
-### OpenLayers
+#### OpenLayers
 
 ```js
 new ol.layer.STAM({
