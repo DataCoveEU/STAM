@@ -154,59 +154,67 @@ export class MapInterface {
       }
     }
 
-    //Add an object to the cache, if it is the first time for this zoom level
-    if (!this.cache[zoom]) {
-      this.cache[zoom] = {
-        "type": "FeatureCollection",
-        "features": []
-      }
-    }
 
-    if (this.config.cluster) {
+    if (this.config.cluster || this.config.cluster == undefined) {
+      //Add an object to the cache, if it is the first time for this zoom level
+      if (!this.cache[zoom]) {
+        this.cache[zoom] = {
+          "type": "FeatureCollection",
+          "features": []
+        }
+      }
+
+      //Only query the count not the data
       correctedQuery.count = true;
       correctedQuery.top = 0;
 
-      var top = { lat: this.lat2tile(boundingBox[0], zoom), lng: this.long2tile(boundingBox[1], zoom) };
-      var bottom = { lat: this.lat2tile(boundingBox[2], zoom), lng: this.long2tile(boundingBox[3], zoom) };
+      //Get the coordinates of the top left and bottom right
+      var top = { lat: this.lat2tile(boundingBox[1], zoom), lng: this.long2tile(boundingBox[0], zoom) };
+      var bottom = { lat: this.lat2tile(boundingBox[3], zoom), lng: this.long2tile(boundingBox[2], zoom) };
 
 
       var recs = [];
 
-      for (var x = top.lat; x <= bottom.lat; x++) {
-        for (var y = bottom.lng; y <= top.lng; y++) {
-          console.log(x, y);
-          var t = { lat: this.tile2lat(x, zoom), lng: this.tile2long(y, zoom) };
-          var b = { lat: this.tile2lat(x + 1, zoom), lng: this.tile2long(y + 1, zoom) };
+      //Iterate all OSM tiles
+      for (var x = bottom.lng; x <= top.lng; x++) {
+        for (var y = top.lat; y <= bottom.lat; y++) {
+          //Get top and bottom coordinates
+          var t = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
+          var b = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
 
+          //Clone the query object
           var copyQuery = JSON.parse(JSON.stringify(correctedQuery));
 
+          //Get the ST filter
           var geoFilter = polygonToFilter([
             [
-              [t.lat, t.lng],
-              [t.lat, b.lng],
-              [b.lat, b.lng],
-              [b.lat, t.lng],
-              [t.lat, t.lng]
+              [t.lng, t.lat],
+              [t.lng, b.lat],
+              [b.lng, b.lat],
+              [b.lng, t.lat],
+              [t.lng, t.lat]
             ]
           ], copyQuery.entityType);
 
+          //Append it to old filter if given
           if (copyQuery.filter) {
             copyQuery.filter = `(${copyQuery.filter}) and ${geoFilter}`;
           } else {
             copyQuery.filter = geoFilter;
           }
 
+          //Create a geojson polygon with tbe given coordinates
           var feature = {
             "type": "Feature",
             "geometry": {
               "type": "Polygon",
               "coordinates": [
                 [
-                  [t.lat, t.lng],
-                  [t.lat, b.lng],
-                  [b.lat, b.lng],
-                  [b.lat, t.lng],
-                  [t.lat, t.lng]
+                  [t.lng, t.lat],
+                  [t.lng, b.lat],
+                  [b.lng, b.lat],
+                  [b.lng, t.lat],
+                  [t.lng, t.lat]
                 ]
               ]
             },
@@ -215,14 +223,16 @@ export class MapInterface {
             }
           };
 
+          //Check if a polygon is already present
           var existing = this.cache[zoom].features.find((feature2: any) => {
             return compare_features(feature, feature2);
           });
 
           if (!existing) {
-
+            //Query the count of things
             var data: any = await this.api.getGeoJson(copyQuery);
 
+            //Add it to the recs array if more than 0
             if (data["@iot.count"] != 0) {
               feature.properties.count = data["@iot.count"];
               recs.push(feature);
@@ -234,7 +244,9 @@ export class MapInterface {
       var toMarker: any = [];
       var toPush: any = [];
 
+      //Iterate all polygons
       recs.forEach((feature: any) => {
+        //Check if markers should be loaded
         if (feature.properties.count <= this.config.clusterMin) {
           toMarker.push(feature.geometry.coordinates);
         } else {
@@ -245,6 +257,7 @@ export class MapInterface {
 
       this.cache[zoom].features.push(...toPush);
 
+      //Load markers
       await this.getMarkers(toMarker, zoom);
     } else {
 
@@ -274,7 +287,7 @@ export class MapInterface {
 
         //Get all cluster tiles
         var onlyPolys: any = this.cache[zoom].features.filter((geo: any) => {
-          return geo.properties.count;
+          return geo?.properties?.count;
         });
 
         //Get all the coordinates
@@ -326,6 +339,14 @@ export class MapInterface {
           locations = rawGeoJson.value.map((data: any) => {
             return data.feature
           });
+        }
+
+        //Add an object to the cache, if it is the first time for this zoom level
+        if (!this.cache[zoom]) {
+          this.cache[zoom] = {
+            "type": "FeatureCollection",
+            "features": []
+          }
         }
 
         this.cache[zoom].features.push(...locations);
