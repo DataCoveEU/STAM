@@ -523,6 +523,7 @@ export class MapInterface {
             geoJson = marker.Locations[0].location;
           else
             geoJson = marker.feature;
+
           delete marker.Locations;
           geoJson.properties = marker;
           if (!marker.getData)

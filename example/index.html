@@ -25,10 +25,10 @@
 </head>
 
 <body>
-    <div id="map" class="map"></div>
-    <!--    <div id="mapOl" class="map"></div> -->
+    <!-- <div id="map" class="map"></div> -->
+    <div id="mapOl" class="map"></div>
     <script>
-        /*   var map = new ol.Map({
+        var map = new ol.Map({
             layers: [
                 new ol.layer.Tile({
                     source: new ol.source.OSM(),
@@ -54,16 +54,14 @@
                 entityType: 'Things',
                 // filter: "startswith(name,'Abzugsgraben')",
                 select: null,
-                 expand: [{
-                    entityType: "Datastreams",
-                    select: ["name"]
-                }], 
-        top: 20000
-        }
-        }));*/
+
+                top: 20000
+            }
+        }));
         //var stam = new STAM({});
 
 
+        /**
         var map2 = L.map('map').setView([50.27264, 7.26469], 8);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -72,7 +70,7 @@
 
         L.stam({
             baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            MarkerStyle: "yellow",
+            markerStyle: "green",
             clusterMin: 5,
             cluster: true,
             queryObject: {
@@ -85,6 +83,7 @@
                 top: 0
             }
         }).addTo(map2);
+        */
     </script>
 </body>
 

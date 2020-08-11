@@ -291,7 +291,7 @@ if (typeof ol != "undefined") {
           return true;
         }.bind(this));
 
-        //Force a map renderer
+        //Force a map render
         olmap.render();
 
         //Clear the olLayers array and push the new layer
@@ -340,9 +340,34 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number) {
         features: new ol.format.GeoJSON().readFeatures(geoJson, { featureProjection: olmap.getView().getProjection().getCode() }),
       });
 
+      var style = new ol.style.Style({
+        image: new ol.style.Icon(({
+          anchor: [12, 41],
+          anchorXUnits: 'fraction',
+          anchorYUnits: 'pixels',
+          src: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png'
+        })),
+      })
+
       //Create the vectorLayer with the geojson vector source
       var vectorLayer = new ol.layer.Vector({
         source: vectorSource,
+        style: (feature: any) => {
+          console.log(feature.getGeometry());
+          if (feature.getGeometry().getType() == "Point")
+            return style;
+          else
+            return new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: 'blue',
+                lineDash: [4],
+                width: 3,
+              }),
+              fill: new ol.style.Fill({
+                color: 'rgba(0, 0, 255, 0.1)',
+              }),
+            });
+        }
       });
 
       //Resolve the promise with the vector layer
