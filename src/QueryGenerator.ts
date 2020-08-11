@@ -32,7 +32,7 @@ export class QueryGenerator {
 
     for (var key in this.queryObject) {
       //Remove empty properties
-      if (!this.queryObject[key]) continue;
+      if (this.queryObject[key] == undefined || this.queryObject[key] == null) continue;
       //Select
       if (key == 'select') {
         prefix.push(`$select=${this.queryObject.select.join(',')}`);

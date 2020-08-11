@@ -19,6 +19,7 @@ export interface QueryObject {
 }
 
 export interface Config {
+  cluster: Boolean,
   clusterMin: number,
   queryObject: QueryObject;
   baseUrl: String,
