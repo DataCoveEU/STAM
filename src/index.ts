@@ -1,10 +1,11 @@
 import { MapInterface } from './MapInterface';
 import { textToMarker } from './leaflet/markers';
-
-
+// @ts-ignore
+import picoModal from 'picomodal';
 
 declare var L: any;
 declare var ol: any;
+declare var Plotly: any;
 
 export interface QueryObject {
   [key: string]: Array<String> | String | Array<QueryObject> | Number | Boolean,
@@ -139,17 +140,30 @@ if (typeof L !== "undefined") {
               countLayer.addLayer(circle);
             } else {
 
+              var defaultPopup: boolean = true;
+              //Used for creating the default popup body
+              layer.on('popupopen', function () {
+                if (defaultPopup) {
+                  //Get the popup body
+                  var popupElement = document.getElementsByClassName('leaflet-popup-content')[0] as HTMLElement;
+                  createDefaultPopup(popupElement, feature);
+                }
+              });
+
               //Add a click event to the markers
               layer.on('click', function () {
                 //Bind popup with functions return if present
                 if (config.markerClick) {
                   var out = config.markerClick(feature);
-                  if (out)
+                  if (out) {
+                    defaultPopup = false;
                     return layer.bindPopup(out);
+                  }
                 }
 
+
                 //Default behavior 
-                layer.bindPopup(`<span>${JSON.stringify(feature.properties)}</span>`);
+                layer.bindPopup('<h3>' + feature.properties.name + '</h3>');
               });
 
               layer.on('mouseover', function () {
@@ -242,6 +256,21 @@ if (typeof L !== "undefined") {
 
 if (typeof ol != "undefined") {
 
+  //Adding css style for the marker popup
+  var css = `.ol-popup{position:absolute;min-width:180px;background-color:#fff;-webkit-filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));padding:15px;border-radius:10px;border:1px solid #ccc;bottom:40px;left:-50px}.ol-popup:after,.ol-popup:before{top:100%;border:solid transparent;content:" ";height:0;width:0;position:absolute;pointer-events:none}.ol-popup:after{border-top-color:#fff;border-width:10px;left:48px;margin-left:-10px}.ol-popup:before{border-top-color:#ccc;border-width:11px;left:48px;margin-left:-11px}.ol-popup-closer{text-decoration:none;position:absolute;top:2px;right:8px}.ol-popup-closer:after{content:"✖"}`,
+    head = document.head || document.getElementsByTagName('head')[0],
+    style: any = document.createElement('style');
+
+  head.appendChild(style);
+
+  style.type = 'text/css';
+  if (style.styleSheet) {
+    // This is required for IE8 and below.
+    style.styleSheet.cssText = css;
+  } else {
+    style.appendChild(document.createTextNode(css));
+  }
+
   //Since ol 6 ol.inherits was removed
   var ol_ext_inherits = function (child: any, parent: any) {
     child.prototype = Object.create(parent.prototype);
@@ -270,6 +299,77 @@ if (typeof ol != "undefined") {
 
     var mapInterface = new MapInterface(config);
 
+    //If popup is not in the html dom, add it
+    if (!document.getElementById('popup')) {
+      document.writeln(`<div id="popup" class="ol-popup">
+      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+      <div id="popup-content"></div>
+      </div>`);
+    }
+
+    //Creating the popup
+    var
+      container = document.getElementById('popup'),
+      content_element = document.getElementById('popup-content'),
+      closer = document.getElementById('popup-closer');
+
+    //Marker close event
+    closer.onclick = function () {
+      overlay.setPosition(undefined);
+      closer.blur();
+      return false;
+    };
+
+    //Create overlay for popup
+    var overlay = new ol.Overlay({
+      element: container,
+      autoPan: true,
+      offset: [0, -10]
+    });
+    //Add popup to map
+    olmap.addOverlay(overlay);
+
+    //Cursor as pointer when over a marker
+    olmap.on("pointermove", function (evt: any) {
+      var hit = this.forEachFeatureAtPixel(evt.pixel, function (feature: any, layer: any) {
+        return feature.get('name') != "cluster";
+      });
+      if (hit) {
+        this.getTargetElement().style.cursor = 'pointer';
+      } else {
+        this.getTargetElement().style.cursor = '';
+      }
+    });
+
+
+    //Map onclick
+    olmap.on('click', function (evt: any) {
+      //Get the clicked feature
+      var feature = olmap.forEachFeatureAtPixel(evt.pixel,
+        function (feature: any, layer: any) {
+          return feature;
+        });
+      //Check if feature was clicked
+      if (feature) {
+        var geometry = feature.getGeometry();
+        var coord = geometry.getCoordinates();
+
+        var content;
+        //Check type
+        if (typeof config.markerClick == 'function') {
+          content = config.markerClick(olToGeoJSON(feature));
+        }
+
+        //If no content, just insert the default content
+        if (!content) {
+          createDefaultPopup(content_element, olToGeoJSON(feature));
+        } else {
+          content_element.innerHTML = content;
+        }
+        overlay.setPosition(coord);
+      }
+    });
+
     //Add listener to moveend, called when moving and zooming;
     olmap.on("moveend", function () {
       //Check if zoom level was changed
@@ -278,7 +378,7 @@ if (typeof ol != "undefined") {
       }
 
       //always add new layer, because the geojson is cached inside MapInterface.ts
-      addSTAMLayer(mapInterface, zoom).then(function (layer: any) {
+      addSTAMLayer(mapInterface, zoom, config).then(function (layer: any) {
         this.getLayers().array_.push(layer);
 
         this.changed();
@@ -291,8 +391,11 @@ if (typeof ol != "undefined") {
           return true;
         }.bind(this));
 
-        //Force a map render
+        //Force a map render when layer is changed
+        layer.on('change', () => { olmap.render() });
+
         olmap.render();
+
 
         //Clear the olLayers array and push the new layer
         olLayers = [];
@@ -310,12 +413,77 @@ if (typeof ol != "undefined") {
 }
 
 /**
+ * Adds the default body to a popup
+ * @param content_element popup content element
+ * @param feature GeoJSON feature that was clicked
+ */
+function createDefaultPopup(content_element: HTMLElement, feature: any) {
+  content_element.innerHTML = '<h3>' + feature.properties.name + '</h3>';
+
+  var list = document.createElement('ul');
+
+  //Iterate all ObservedProperties
+  Object.keys(feature.properties.getData).forEach((key: string) => {
+    //Create new list element
+    var li = document.createElement('li');
+    li.innerText = key;
+    //Set cursor style on hover
+    li.setAttribute('style', "cursor: pointer");
+    li.onclick = function () {
+      //Create new popup
+      picoModal({
+        width: 1140, content: '', modalId: 'pico-1'
+      }).beforeClose(function () {
+        Plotly.purge("pico-1");
+        //Remove pico-1 element from DOM
+        document.getElementById("pico-1").remove();
+      }).afterShow(function () {
+
+        //SHOW diagram
+
+        var trace1 = {
+          x: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          y: [8, 7, 6, 5, 4, 3, 2, 1, 0],
+          type: 'scatter'
+        };
+
+        var trace2 = {
+          x: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          y: [0, 1, 2, 3, 4, 5, 6, 7, 8],
+          type: 'scatter'
+        };
+
+        var data = [trace1, trace2];
+
+        var layout = {
+          height: 300,
+          xaxis: {
+            autorange: true
+          },
+          yaxis: {
+            autorange: true
+          },
+          autosize: true
+        };
+
+        Plotly.newPlot('pico-1', data, layout);
+      }).show();
+    };
+    //Append to list
+    list.appendChild(li);
+  });
+
+  //Append list to popup
+  content_element.appendChild(list);
+}
+
+/**
  * Creates a stam layer
  * @param mapInterface mapInterface instance
  * @param zoom current zoom level
  * @returns a promise that resolves with an openLayers vectorLayer that contains the geoJson
  */
-function addSTAMLayer(mapInterface: MapInterface, zoom: number) {
+function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config) {
   return new Promise(function (resolve, reject) {
     var bounds;
 
@@ -340,39 +508,87 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number) {
         features: new ol.format.GeoJSON().readFeatures(geoJson, { featureProjection: olmap.getView().getProjection().getCode() }),
       });
 
-      var style = new ol.style.Style({
-        image: new ol.style.Icon(({
-          anchor: [12, 41],
-          anchorXUnits: 'fraction',
-          anchorYUnits: 'pixels',
-          src: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png'
-        })),
-      })
+      var circleSource = new ol.source.Vector();
+
+      var circleLayer = new ol.layer.Vector({ source: circleSource });
+
 
       //Create the vectorLayer with the geojson vector source
       var vectorLayer = new ol.layer.Vector({
         source: vectorSource,
-        style: (feature: any) => {
-          console.log(feature.getGeometry());
-          if (feature.getGeometry().getType() == "Point")
+        // features,
+        style: function (feature: any) {
+          //Check the feature type
+          if (feature.getGeometry().getType() == "Point") {
+            //Add the marker image
+            var style = new ol.style.Style({
+              image: new ol.style.Icon(({
+                anchor: [0.5, 1],
+                scale: 0.5,
+                anchorXUnits: 'fraction',
+                anchorYUnits: 'fraction',
+                //Call function if present, with the feature, if not use the color name if present. Default is blue
+                src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${typeof config.markerStyle == 'function' ? config.markerStyle(olToGeoJSON(feature)) : config.markerStyle ? config.markerStyle : 'blue'}.png`
+              })),
+            })
+
             return style;
-          else
-            return new ol.style.Style({
-              stroke: new ol.style.Stroke({
-                color: 'blue',
-                lineDash: [4],
-                width: 3,
-              }),
-              fill: new ol.style.Fill({
-                color: 'rgba(0, 0, 255, 0.1)',
-              }),
-            });
+          } else {
+            if (feature.get('count') != undefined) {
+              //Get extends of cluster
+              var cords = feature.getGeometry().getExtent();
+
+              //Calculate middle
+              var long = (cords[0] + cords[2]) / 2;
+              var lat = (cords[1] + cords[3]) / 2;
+
+              //Add circle with text
+              var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
+              circle.setStyle(new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                  width: 2,
+                  color: 'red',
+                  radius: 1
+                }),
+                text: new ol.style.Text({
+                  font: 30 + 'px Calibri,sans-serif',
+                  fill: new ol.style.Fill({ color: '#000' }),
+                  stroke: new ol.style.Stroke({
+                    color: '#fff', width: 2
+                  }),
+                  text: `${feature.get('count')}`
+                })
+              }));
+              circleSource.addFeature(circle);
+
+              //return style of feature
+              return new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                  color: 'blue',
+                  width: 3,
+                }),
+                fill: null
+              });
+            } else {
+              return new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                  color: 'blue',
+                  width: 3,
+                }),
+                fill: null
+              });
+            }
+          }
         }
       });
 
       //Resolve the promise with the vector layer
-      resolve(vectorLayer);
+      resolve(new ol.layer.Group({ layers: [vectorLayer, circleLayer] }));
     });
   });
+}
+
+function olToGeoJSON(feature: any): any {
+  return { type: feature.getGeometry().getType(), properties: feature.getProperties(), geometry: { type: 'Point', coordinates: feature.getGeometry().getCoordinates() } };
 }
 

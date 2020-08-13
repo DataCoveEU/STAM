@@ -524,6 +524,16 @@ export class MapInterface {
           else
             geoJson = marker.feature;
 
+          //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
+          if (geoJson.type == "Point") {
+            geoJson =
+            {
+              "type": "Feature",
+              "geometry": geoJson
+            }
+          }
+
+
           delete marker.Locations;
           geoJson.properties = marker;
           if (!marker.getData)

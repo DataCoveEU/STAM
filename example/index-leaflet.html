@@ -26,49 +26,8 @@
 </head>
 
 <body>
-    <!-- <div id="map" class="map"></div> -->
-    <div id="mapOl" class="map"></div>
+    <div id="map" class="map"></div>
     <script>
-        var map = new ol.Map({
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM(),
-                }),
-
-            ],
-            target: 'mapOl',
-            view: new ol.View({
-                center: [808701.59, 6493626.85],
-                zoom: 8,
-            }),
-        });
-
-        map.addLayer(new ol.layer.STAM({
-            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            markerStyle: (feature) => {
-                console.log(feature);
-                return "yellow";
-            },
-            map,
-            markerClick: function (feature) {
-                //return `<span>${JSON.stringify(feature)}</span>`
-            },
-            clusterMin: 5,
-            queryObject: {
-                count: true,
-                skip: 0,
-                entityType: 'Things',
-                // filter: "startswith(name,'Abzugsgraben')",
-                select: null,
-
-                top: 20000
-            }
-        }));
-        //var stam = new STAM({});
-
-
-        /**
         var map2 = L.map('map').setView([50.27264, 7.26469], 8);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -76,8 +35,11 @@
         }).addTo(map2);
 
         L.stam({
-            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            markerStyle: "green",
+            baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+            markerStyle: (feature) => {
+                console.log(feature);
+                return "green"
+            },
             clusterMin: 5,
             cluster: true,
             queryObject: {
@@ -90,7 +52,6 @@
                 top: 0
             }
         }).addTo(map2);
-        */
     </script>
 </body>
 
