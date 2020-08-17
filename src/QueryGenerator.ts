@@ -29,6 +29,10 @@ export class QueryGenerator {
       }
     }
 
+    if (this.queryObject.pathSuffix) {
+      url = `${url}/${this.queryObject.pathSuffix}`;
+    }
+
 
     for (var key in this.queryObject) {
       //Remove empty properties
@@ -46,7 +50,7 @@ export class QueryGenerator {
         continue;
       }
       //Every other property
-      if (key != 'entityType') {
+      if (key != 'entityType' && key != 'pathSuffix') {
         prefix.push(`$${key}=${this.queryObject[key].toString()}`)
       }
 
@@ -59,9 +63,9 @@ export class QueryGenerator {
 
     //Return right url string
     if (main) {
-      return `${url}?${prefix.map(encodeURI).join('&')}`;
+      return `${url}?${prefix.join('&')}`;
     } else {
-      return `${url}(${prefix.map(encodeURI).join(';')})`;
+      return `${url}(${prefix.join(';')})`;
     }
   }
 }

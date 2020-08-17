@@ -35,9 +35,8 @@
         }).addTo(map2);
 
         L.stam({
-            baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             markerStyle: (feature) => {
-                console.log(feature);
                 return "green"
             },
             clusterMin: 5,

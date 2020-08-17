@@ -16,7 +16,10 @@ export interface QueryObject {
   top?: Number,
   skip?: Number,
   count?: Boolean,
-  id?: Number
+  id?: Number,
+  resultFormat?: String,
+  orderby?: String,
+  pathSuffix?: String
 }
 
 export interface Config {
@@ -130,7 +133,7 @@ if (typeof L !== "undefined") {
 
               //Position a circle in the center
               var circle = L.circleMarker(L.latLng(lat, lng), {
-                radius: zoom * 3
+                radius: 127 / 3
               });
 
               //Add the count of things inside the polygon to the circle
@@ -152,18 +155,20 @@ if (typeof L !== "undefined") {
 
               //Add a click event to the markers
               layer.on('click', function () {
+                var defaultPopup = true;
                 //Bind popup with functions return if present
                 if (config.markerClick) {
                   var out = config.markerClick(feature);
                   if (out) {
                     defaultPopup = false;
-                    return layer.bindPopup(out);
+                    layer.bindPopup(out);
                   }
                 }
 
-
-                //Default behavior 
-                layer.bindPopup('<h3>' + feature.properties.name + '</h3>');
+                if (defaultPopup) {
+                  //Default behavior 
+                  layer.bindPopup('<h3>' + feature.properties.name + '</h3>');
+                }
               });
 
               layer.on('mouseover', function () {
@@ -331,7 +336,7 @@ if (typeof ol != "undefined") {
 
     //Cursor as pointer when over a marker
     olmap.on("pointermove", function (evt: any) {
-      var hit = this.forEachFeatureAtPixel(evt.pixel, function (feature: any, layer: any) {
+      var hit = this.forEachFeatureAtPixel(evt.pixel, function (feature: any) {
         return feature.get('name') != "cluster";
       });
       if (hit) {
@@ -339,6 +344,34 @@ if (typeof ol != "undefined") {
       } else {
         this.getTargetElement().style.cursor = '';
       }
+    });
+
+    var selected: any = null;
+
+    var highlightStyle = new ol.style.Style({
+      fill: new ol.style.Fill({
+        color: 'rgba(255,255,255,0.7)',
+      }),
+      stroke: new ol.style.Stroke({
+        color: '#3399CC',
+        width: 3,
+      }),
+    });
+
+
+    olmap.on('pointermove', function (e: any) {
+      if (selected !== null) {
+        selected.setStyle(undefined);
+        selected = null;
+      }
+
+      olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
+        if (f.get('count')) {
+          selected = f;
+          f.setStyle(highlightStyle);
+          return true;
+        }
+      });
     });
 
 
@@ -351,22 +384,34 @@ if (typeof ol != "undefined") {
         });
       //Check if feature was clicked
       if (feature) {
-        var geometry = feature.getGeometry();
-        var coord = geometry.getCoordinates();
+        //Marker was clicked
+        if (feature.get('@iot.id') != undefined) {
+          var geometry = feature.getGeometry();
+          var coord = geometry.getCoordinates();
 
-        var content;
-        //Check type
-        if (typeof config.markerClick == 'function') {
-          content = config.markerClick(olToGeoJSON(feature));
-        }
+          var content;
+          //Check type
+          if (typeof config.markerClick == 'function') {
+            content = config.markerClick(olToGeoJSON(feature));
+          }
 
-        //If no content, just insert the default content
-        if (!content) {
-          createDefaultPopup(content_element, olToGeoJSON(feature));
+          //If no content, just insert the default content
+          if (!content) {
+            createDefaultPopup(content_element, olToGeoJSON(feature));
+          } else {
+            content_element.innerHTML = content;
+          }
+          overlay.setPosition(coord);
         } else {
-          content_element.innerHTML = content;
+          //Cluster was clicked
+          if (feature.get('count') != undefined) {
+            if (typeof config.clusterClick == 'function') {
+              config?.clusterClick(olToGeoJSON(feature));
+            } else {
+              olmap.getView().fit(feature.getGeometry().getExtent(), olmap.getSize(), { duration: 1000 });
+            }
+          }
         }
-        overlay.setPosition(coord);
       }
     });
 
@@ -424,6 +469,7 @@ function createDefaultPopup(content_element: HTMLElement, feature: any) {
 
   //Iterate all ObservedProperties
   Object.keys(feature.properties.getData).forEach((key: string) => {
+
     //Create new list element
     var li = document.createElement('li');
     li.innerText = key;
@@ -437,23 +483,33 @@ function createDefaultPopup(content_element: HTMLElement, feature: any) {
         Plotly.purge("pico-1");
         //Remove pico-1 element from DOM
         document.getElementById("pico-1").remove();
-      }).afterShow(function () {
+      }).afterShow(async function () {
+
+        var result = await feature.properties.getData[key]();
 
         //SHOW diagram
 
+        var x: any = [];
+        var y: any = [];
+
+        result.value.forEach((Datastream: any) => {
+          Datastream.dataArray.forEach((Observation: any) => {
+            if (Observation[1].indexOf('/') != -1) {
+              x.push(Observation[1].split('/')[0]);
+            } else {
+              x.push(Observation[1]);
+            }
+            y.push(Observation[2]);
+          });
+        })
+
         var trace1 = {
-          x: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-          y: [8, 7, 6, 5, 4, 3, 2, 1, 0],
+          x,
+          y,
           type: 'scatter'
         };
 
-        var trace2 = {
-          x: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-          y: [0, 1, 2, 3, 4, 5, 6, 7, 8],
-          type: 'scatter'
-        };
-
-        var data = [trace1, trace2];
+        var data: any = [trace1];
 
         var layout = {
           height: 300,
@@ -461,7 +517,8 @@ function createDefaultPopup(content_element: HTMLElement, feature: any) {
             autorange: true
           },
           yaxis: {
-            autorange: true
+            autorange: true,
+            title: { text: result.unitOfMeasurement.name }
           },
           autosize: true
         };
@@ -567,15 +624,7 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config) 
                   color: 'blue',
                   width: 3,
                 }),
-                fill: null
-              });
-            } else {
-              return new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                  color: 'blue',
-                  width: 3,
-                }),
-                fill: null
+                fill: new ol.style.Fill({ color: 'rgba(0, 0, 0, 0)' })
               });
             }
           }
@@ -588,6 +637,10 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config) 
   });
 }
 
+/**
+ * Converts a ol feature to a geoJson
+ * @param feature ol feature
+ */
 function olToGeoJSON(feature: any): any {
   return { type: feature.getGeometry().getType(), properties: feature.getProperties(), geometry: { type: 'Point', coordinates: feature.getGeometry().getCoordinates() } };
 }

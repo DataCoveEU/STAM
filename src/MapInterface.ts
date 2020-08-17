@@ -173,48 +173,50 @@ export class MapInterface {
       var bottom = { lat: this.lat2tile(boundingBox[3], zoom), lng: this.long2tile(boundingBox[2], zoom) };
 
 
-      var recs = [];
+      var recs: any = [];
+
+      var promises: any = [];
 
       //Iterate all OSM tiles
       for (var x = bottom.lng; x <= top.lng; x++) {
         for (var y = top.lat; y <= bottom.lat; y++) {
           //Get top and bottom coordinates
-          var t = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
-          var b = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
+          const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
+          const B = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
 
           //Clone the query object
-          var copyQuery = JSON.parse(JSON.stringify(correctedQuery));
+          const QUERYCOPY = JSON.parse(JSON.stringify(correctedQuery));
 
           //Get the ST filter
-          var geoFilter = polygonToFilter([
+          const GEOFILTER = polygonToFilter([
             [
-              [t.lng, t.lat],
-              [t.lng, b.lat],
-              [b.lng, b.lat],
-              [b.lng, t.lat],
-              [t.lng, t.lat]
+              [T.lng, T.lat],
+              [T.lng, B.lat],
+              [B.lng, B.lat],
+              [B.lng, T.lat],
+              [T.lng, T.lat]
             ]
-          ], copyQuery.entityType);
+          ], QUERYCOPY.entityType);
 
           //Append it to old filter if given
-          if (copyQuery.filter) {
-            copyQuery.filter = `(${copyQuery.filter}) and ${geoFilter}`;
+          if (QUERYCOPY.filter) {
+            QUERYCOPY.filter = `(${QUERYCOPY.filter}) and ${GEOFILTER}`;
           } else {
-            copyQuery.filter = geoFilter;
+            QUERYCOPY.filter = GEOFILTER;
           }
 
           //Create a geojson polygon with tbe given coordinates
-          var feature = {
+          const feature = {
             "type": "Feature",
             "geometry": {
               "type": "Polygon",
               "coordinates": [
                 [
-                  [t.lng, t.lat],
-                  [t.lng, b.lat],
-                  [b.lng, b.lat],
-                  [b.lng, t.lat],
-                  [t.lng, t.lat]
+                  [T.lng, T.lat],
+                  [T.lng, B.lat],
+                  [B.lng, B.lat],
+                  [B.lng, T.lat],
+                  [T.lng, T.lat]
                 ]
               ]
             },
@@ -224,11 +226,22 @@ export class MapInterface {
           };
 
           //Check if a polygon is already present
-          var existing = this.cache[zoom].features.find((feature2: any) => {
+          const existing = this.cache[zoom].features.find((feature2: any) => {
             return compare_features(feature, feature2);
           });
 
           if (!existing) {
+            promises.push(new Promise(async (resolve, reject) => {
+              var data: any = await this.api.getGeoJson(QUERYCOPY);
+
+              if (data["@iot.count"] != 0) {
+                feature.properties.count = data["@iot.count"];
+                resolve(feature);
+              } else {
+                resolve(null);
+              }
+            }));
+            /*
             //Query the count of things
             var data: any = await this.api.getGeoJson(copyQuery);
 
@@ -236,10 +249,18 @@ export class MapInterface {
             if (data["@iot.count"] != 0) {
               feature.properties.count = data["@iot.count"];
               recs.push(feature);
-            }
+            }*/
           }
         }
       }
+
+      var counts = await Promise.all(promises);
+
+      counts.forEach((feature: any) => {
+        if (feature) {
+          recs.push(feature);
+        }
+      });
 
       var toMarker: any = [];
       var toPush: any = [];
@@ -269,46 +290,8 @@ export class MapInterface {
       var bottomLat = OSMBOundingBox[2];
       var bottomLong = OSMBOundingBox[3];
 
-      geoFilter = null;
-
-      //Check if cached tiles exist
-      if (this.cache[zoom]) {
-
-        //Create a poly out of the bounding box
-        var poly1: any = [
-          [
-            [topLat, topLong],
-            [topLat, bottomLong],
-            [bottomLat, bottomLong],
-            [bottomLat, topLong],
-            [topLat, topLong]
-          ]
-        ];
-
-        //Get all cluster tiles
-        var onlyPolys: any = this.cache[zoom].features.filter((geo: any) => {
-          return geo?.properties?.count;
-        });
-
-        //Get all the coordinates
-        onlyPolys = onlyPolys.map((geo: any) => {
-          return geo.geometry.coordinates;
-        });
-
-        //Subtract the cached tiles from the OSM bounding box to reduce network traffic
-        var subtracted = poly.difference(poly1, ...onlyPolys);
-
-        //Check if the array isn't empty
-        if (subtracted[0]) {
-          //Get the geo filter
-          geoFilter = polygonToFilter(subtracted, correctedQuery.entityType);
-        } else
-          //If the array is empty, nothing has to be fetched from the server, so the cached geoJSON can be returned
-          return this.cache[zoom];
-      } else {
-        //Create a polygon with the OSM bounding box coordinates
-        geoFilter = `geo.intersects(${correctedQuery.entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${topLat} ${topLong}, ${topLat} ${bottomLong}, ${bottomLat} ${bottomLong}, ${bottomLat} ${topLong} ,${topLat} ${topLong}))')`;
-      }
+      //Create a polygon with the OSM bounding box coordinates
+      var geoFilter = `geo.intersects(${correctedQuery.entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${topLat} ${topLong}, ${topLat} ${bottomLong}, ${bottomLat} ${bottomLong}, ${bottomLat} ${topLong} ,${topLat} ${topLong}))')`;
 
       //Check for an existing filter
       if (correctedQuery.filter) {
@@ -337,6 +320,13 @@ export class MapInterface {
         } else {
           //Get the location from the FeaturesOfInterest
           locations = rawGeoJson.value.map((data: any) => {
+            //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
+            if (data.feature.type == "Point") {
+              return {
+                "type": "Feature",
+                "geometry": data.feature
+              }
+            }
             return data.feature
           });
         }
@@ -350,104 +340,10 @@ export class MapInterface {
         }
 
         this.cache[zoom].features.push(...locations);
-
-        /*
-
-        //Check if GeoJson Type is point, if not the GeoJson is not gonna be changed
-        if (locations[0] && locations[0].type == "Point") {
-          //Create cluster from the points
-          await this.cluster(locations, zoom);
-        } else {
-          this.cache[zoom].features.push(...locations);
-        }
-        */
       }
     }
     return this.cache[zoom];
   }
-
-  /*
-  private async cluster(locations: any, zoom: number) {
-    locations = locations.map((location: any) => {
-      //Get the coordinates of the top left point of the OSM tile the point intersects with
-      var top = this.coordinatesToOsm({
-        lat: location.coordinates[0],
-        lng: location.coordinates[1]
-      }, zoom);
-
-      //Get the coordinates of the bottom right point of the OSM tile the point intersects with
-      var bottom = this.coordinatesToOsmBottom({
-        lat: location.coordinates[0],
-        lng: location.coordinates[1]
-      }, zoom);
-
-      //Create a geojson with the coordinates. Duplicates will be filtered later.
-      var obj = {
-        "type": "Feature",
-        "geometry": {
-          "type": "Polygon",
-          "coordinates": [
-            [
-              [top.lat, top.lng],
-              [top.lat, bottom.lng],
-              [bottom.lat, bottom.lng],
-              [bottom.lat, top.lng],
-              [top.lat, top.lng]
-            ]
-          ]
-        },
-        "properties": {
-          "count": 1
-        }
-      };
-      return obj;
-    });
-
-    var tiles: any = [];
-
-    //Remove duplicates, increase counter if duplicate
-    locations.forEach((feature: any) => {
-      var existing = tiles.find((feature2: any) => {
-        return compare_features(feature, feature2);
-      });
-
-      if (!existing) {
-        tiles.push(feature);
-      }
-      else {
-        existing.properties.count = existing.properties.count + 1;
-      }
-    });
-
-    //Filter out all existing tiles
-    tiles = tiles.filter((feature: any) => {
-      return !this.cache[zoom].features.some((feature2: any) => {
-        return compare_features(feature, feature2);
-      })
-    });
-
-    //Getting all markers
-    var toMarker: any = [];
-
-    tiles = tiles.filter((geo: any) => {
-      //Remove tiles with less than configured things inside
-      if (geo.properties.count < this.config.clusterMin) {
-        //Push all clusters, that should be displayed as markers to the toMarker array
-        toMarker.push([geo.geometry.coordinates]);
-        return false;
-      }
-      else {
-        return true;
-      }
-    });
-
-    //Push tiles to cache
-    this.cache[zoom].features.push(...tiles);
-
-    //Check if any markers should be loaded
-    await this.getMarkers(toMarker, zoom);
-  }
-  */
 
   private async getMarkers(toMarker: any, zoom: number) {
     if (toMarker.length != 0) {
@@ -475,17 +371,24 @@ export class MapInterface {
           if (!datastreamQuery) {
             markerQuery.expand.push(<QueryObject>{
               entityType: "Datastreams",
-              select: ["id", "name"],
+              select: ["id", "name", "unitOfMeasurement"],
               expand: [<QueryObject>{ entityType: 'observedProperty' }]
             });
           }
           else {
-            if (datastreamQuery.select && !datastreamQuery.select.includes("id")) {
+            if (!datastreamQuery.select) {
+              datastreamQuery.select = ["id", "name", "unitOfMeasurement"];
+            }
+            if (!datastreamQuery.select.includes("id")) {
               datastreamQuery.select.push("id");
             }
 
-            if (datastreamQuery.select && !datastreamQuery.select.includes("name")) {
+            if (!datastreamQuery.select.includes("name")) {
               datastreamQuery.select.push("name");
+            }
+
+            if (!datastreamQuery.select.includes("unitOfMeasurement")) {
+              datastreamQuery.select.push("unitOfMeasurement");
             }
           }
 
@@ -503,6 +406,8 @@ export class MapInterface {
           if (markerQuery.select && !markerQuery.select.includes('feature')) {
             markerQuery.select.push('feature');
           }
+
+          markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
         }
 
 
@@ -541,11 +446,29 @@ export class MapInterface {
           if (markerQuery.entityType == 'Things') {
             //Iterate through the datastreams
             for (var datastream of marker.Datastreams) {
+              const id = datastream['@iot.id'];
+              const unitOfMeasurement = datastream.unitOfMeasurement;
               marker.getData[datastream.ObservedProperty.name] = function (filter: string) {
-                var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id: datastream['@iot.id'], expand: [<QueryObject>{ entityType: "Observations", filter }] };
-                return this.api.getGeoJson(datastreamQuery);
+                var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations', filter, resultFormat: 'dataArray', orderby: 'phenomenonTime asc', top: 1000 };
+                return new Promise(async (resolve, reject) => {
+                  var data = await this.api.getGeoJson(datastreamQuery);
+                  data.unitOfMeasurement = unitOfMeasurement;
+                  resolve(data);
+                });
               }.bind(this);
             }
+          } else {
+            const DATASTREAM = marker.Observations[0].Datastream;
+            const id = DATASTREAM['@iot.id'];
+            const unitOfMeasurement = DATASTREAM.unitOfMeasurement;
+            marker.getData[DATASTREAM.ObservedProperty.name] = function (filter: string) {
+              var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations', filter, resultFormat: 'dataArray', orderby: 'phenomenonTime asc', top: 1000 };
+              return new Promise(async (resolve, reject) => {
+                var data = await this.api.getGeoJson(datastreamQuery);
+                data.unitOfMeasurement = unitOfMeasurement;
+                resolve(data);
+              });
+            }.bind(this);
           }
 
           //Check if the marker is already in the cache
