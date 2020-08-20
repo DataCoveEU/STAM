@@ -40,6 +40,19 @@
                 return "green"
             },
             clusterMin: 5,
+            markerMouseOver: function (f) {
+                console.log("MARKER", f)
+            },
+            clusterMouseOver: function (f) {
+                console.log("CLUSTER", f)
+            },
+            clusterClick: function (f) {
+                console.log("CLUSTER", f)
+            },
+            plot: {
+                startDate: new Date("04.10.2020"),
+                endDate: new Date("05.10.2020")
+            },
             cluster: true,
             queryObject: {
                 count: true,

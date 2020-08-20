@@ -14,6 +14,12 @@ export class STAInterface {
 
   getGeoJson(query: QueryObject) {
 
+    var limit: number = query.top;
+    //Only query the given top elements, if a top value is present
+    if (query.top == undefined || query.top == null) {
+      query.top = 10000;
+    }
+
     //Clone
     query = JSON.parse(JSON.stringify(query));
     //Set count to true
@@ -23,34 +29,25 @@ export class STAInterface {
       var url = `${this.baseUrl}/${(new QueryGenerator(query).toString())}`;
       //get data
       var data = await (await fetch(url as any)).json()
+      if (data.value[0] && data.value[0].dataArray) {
+        data.value = data.value[0];
+      }
       var link = data['@iot.nextLink'];
 
-      /* 
-            if (query.top != 0) {
-              var promiseArray = [];
-              for (var x = 1; x <= Math.ceil((data['@iot.count'] / (query.top as number))); x++) {
-                if (x > 10) break;
-                query.skip = x * (query.top as number);
-                promiseArray.push(fetch(`${this.baseUrl}/${new QueryGenerator(query).toString()}`).then((response: any) => { return response.json() }))
-              }
-      
-              var values = await Promise.all(promiseArray);
-      
-              values.forEach((json: any) => {
-                data.value.push(...json.value);
-              });
-            } */
-
-      resolve(data);
-
       //Get data as long as a next link is present
-      while (link) {
+      while (link && (limit == undefined || ((data.value.length && data.value.length < limit) || (data.value.dataArray && data.value.dataArray.length < limit)))) {
         var response = await (await fetch(link)).json()
-        //Push data in existing value array
-        data.value.push(...response.value);
+
+        if (response.value[0] && response.value[0].dataArray) {
+          data.value.dataArray.push(...response.value[0].dataArray);
+        } else {
+          //Push data in existing value array
+          data.value.push(...response.value);
+        }
         //Update next link
         link = response['@iot.nextLink'];
       }
+      console.log(data);
       resolve(data);
     });
   }

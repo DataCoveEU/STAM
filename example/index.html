@@ -30,6 +30,7 @@
     <div id="mapOl" class="map"></div>
     <script>
         var map = new ol.Map({
+            renderers: ['Canvas', 'VML'],
             layers: [
                 new ol.layer.Tile({
                     source: new ol.source.OSM(),
@@ -53,43 +54,49 @@
             markerClick: function (feature) {
                 //return `<span>${JSON.stringify(feature)}</span>`
             },
+            clusterClick: function (f) {
+                console.log("CLUSTER", f)
+            },
+            markerMouseOver: function (f) {
+                console.log("MARKER", f)
+            },
+            clusterMouseOver: function (f) {
+                console.log("CLUSTER", f)
+            },
+            // cachingDuration: 10,
             clusterMin: 5,
-            queryObject: {
-                count: true,
-                skip: 0,
-                entityType: 'Things',
-                // filter: "startswith(name,'Abzugsgraben')",
-                select: null,
+            queryObject: [{
+                    zoomLevel: {
+                        from: 7,
+                        to: 15
+                    },
+                    query: {
+                        count: true,
+                        skip: 0,
+                        entityType: 'FeaturesOfInterest',
+                        // filter: "startswith(name,'Abzugsgraben')",
+                        select: null,
 
-                top: 20000
-            }
+                        top: 20000
+                    }
+                },
+                {
+                    zoomLevel: {
+                        from: 1,
+                        to: 6
+                    },
+                    query: {
+                        count: true,
+                        skip: 0,
+                        entityType: 'Things',
+                        filter: null,
+                        select: null,
+                        expand: null,
+                        top: 0
+                    }
+                }
+            ]
         }));
-        //var stam = new STAM({});
-
-
-        /**
-        var map2 = L.map('map').setView([50.27264, 7.26469], 8);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map2);
-
-        L.stam({
-            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            markerStyle: "green",
-            clusterMin: 5,
-            cluster: true,
-            queryObject: {
-                count: true,
-                skip: 0,
-                entityType: 'Things',
-                filter: null,
-                select: null,
-                expand: null,
-                top: 0
-            }
-        }).addTo(map2);
-        */
     </script>
 </body>
 

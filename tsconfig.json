@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "removeComments": true,
     "declaration": true,
     "declarationDir": "./dist",
     "module": "es6",
@@ -7,7 +8,8 @@
     "outDir": "./dist",
     "target": "es6",
     "typeRoots": [
-      "node_modules/@types"
+      "node_modules/@types",
+      "node_modules/tsee/lib"
     ]
   },
   "include": [

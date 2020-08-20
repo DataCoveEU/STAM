@@ -1,6 +1,8 @@
 import {
   Config,
-  QueryObject
+  QueryObject,
+  RangeQuery,
+  Range
 } from './index';
 import {
   STAInterface
@@ -9,16 +11,22 @@ import {
 import * as p from 'polygon-clipping';
 const poly = (p as any).default;
 
+//import { EventEmitter } from 'tsee';
+
+import { EventEmitter } from "events"
+import { QueryGenerator } from './QueryGenerator';
 
 
 
-export class MapInterface {
+
+export class MapInterface extends EventEmitter {
   config: Config;
   api: STAInterface;
   //Stores the cached geojson
-  cache: any;
+  cache: Array<CacheObject>;
   constructor(config: Config) {
-    this.cache = {};
+    super();
+    this.cache = [];
     this.config = config;
     this.api = new STAInterface(config.baseUrl);
   }
@@ -129,6 +137,46 @@ export class MapInterface {
   }
 
   /**
+   * Get a QueryObject based on the current zoom level
+   * @param zoom Zoom level
+   */
+  getQuery(zoom: number) {
+    //Check if it is a QueryObject
+    if ("entityType" in this.config.queryObject) {
+      return (this.config.queryObject as QueryObject)
+    } else {
+      //Get all queries
+      var range = (this.config.queryObject as Array<RangeQuery>);
+      //Iterate through all
+      for (var rangeQuery of range) {
+        if (isNaN(Number(rangeQuery.zoomLevel))) {
+          //Object
+          var zoomObject = (rangeQuery.zoomLevel as Range);
+          //to must not be specified
+          if (zoomObject.to) {
+            //Check if it is in the given range
+            if (zoom >= zoomObject.from && zoom <= zoomObject.to) {
+              return rangeQuery.query;
+            }
+          } else {
+            //Check if it is greater than specified
+            if (zoom >= zoomObject.from) {
+              return rangeQuery.query;
+            }
+          }
+        } else {
+          //Number
+          var number = (rangeQuery.zoomLevel as number);
+          if (number == zoom) {
+            return rangeQuery.query;
+          }
+        }
+      }
+      throw new Error("No Query specified for the zoomLevel: " + zoom);
+    }
+  }
+
+  /**
    * Gets a GeoJSON from the current zoom level and bounding box, the fetched data is cached
    * @param zoom current zoom level
    * @param boundingBox map's bounding box
@@ -136,8 +184,11 @@ export class MapInterface {
    */
   async getLayerData(zoom: number, boundingBox: Array<number>) {
 
+    //If all data is cached, no event would be emitted
+    this.emitChange(zoom);
+
     //Removing the reference to config.queryObject 
-    var correctedQuery = JSON.parse(JSON.stringify(this.config.queryObject));
+    var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
 
     //Checking if the queried entityType is things
     if (correctedQuery.entityType == 'Things') {
@@ -156,13 +207,6 @@ export class MapInterface {
 
 
     if (this.config.cluster || this.config.cluster == undefined) {
-      //Add an object to the cache, if it is the first time for this zoom level
-      if (!this.cache[zoom]) {
-        this.cache[zoom] = {
-          "type": "FeatureCollection",
-          "features": []
-        }
-      }
 
       //Only query the count not the data
       correctedQuery.count = true;
@@ -226,30 +270,17 @@ export class MapInterface {
           };
 
           //Check if a polygon is already present
-          const existing = this.cache[zoom].features.find((feature2: any) => {
+          const existing = this.getCached(zoom).features.find((feature2: any) => {
             return compare_features(feature, feature2);
           });
 
           if (!existing) {
             promises.push(new Promise(async (resolve, reject) => {
               var data: any = await this.api.getGeoJson(QUERYCOPY);
-
-              if (data["@iot.count"] != 0) {
-                feature.properties.count = data["@iot.count"];
-                resolve(feature);
-              } else {
-                resolve(null);
-              }
-            }));
-            /*
-            //Query the count of things
-            var data: any = await this.api.getGeoJson(copyQuery);
-
-            //Add it to the recs array if more than 0
-            if (data["@iot.count"] != 0) {
               feature.properties.count = data["@iot.count"];
-              recs.push(feature);
-            }*/
+              this.addToCache(zoom, feature);
+              resolve(feature);
+            }));
           }
         }
       }
@@ -263,20 +294,14 @@ export class MapInterface {
       });
 
       var toMarker: any = [];
-      var toPush: any = [];
 
       //Iterate all polygons
       recs.forEach((feature: any) => {
         //Check if markers should be loaded
-        if (feature.properties.count <= this.config.clusterMin) {
+        if (feature.properties.count < this.config.clusterMin) {
           toMarker.push(feature.geometry.coordinates);
-        } else {
-          toPush.push(feature);
         }
       });
-
-
-      this.cache[zoom].features.push(...toPush);
 
       //Load markers
       await this.getMarkers(toMarker, zoom);
@@ -331,155 +356,189 @@ export class MapInterface {
           });
         }
 
-        //Add an object to the cache, if it is the first time for this zoom level
-        if (!this.cache[zoom]) {
-          this.cache[zoom] = {
-            "type": "FeatureCollection",
-            "features": []
-          }
-        }
-
-        this.cache[zoom].features.push(...locations);
+        locations.forEach((location: any) => {
+          this.addToCache(zoom, location);
+        });
       }
     }
-    return this.cache[zoom];
+
+    //Deep clone
+
   }
 
   private async getMarkers(toMarker: any, zoom: number) {
     if (toMarker.length != 0) {
 
-      //Create union out of all clusters to reduce the ST filter length
-      var combine: any = poly.union(...toMarker);
 
-      //Check if a result was returned
-      if (combine) {
+      //Remove reference to config.queryObject
+      var markerQuery = JSON.parse(JSON.stringify(this.getQuery(zoom)));
+      markerQuery.top = 1000;
 
-        //Remove reference to config.queryObject
-        var markerQuery = JSON.parse(JSON.stringify(this.config.queryObject));
-        markerQuery.top = 1000;
+      if (markerQuery.entityType == "Things") {
+        //Check if expand is specified in the queryObject
+        if (!markerQuery.expand)
+          markerQuery.expand = [];
 
-        if (markerQuery.entityType == "Things") {
-          //Check if expand is specified in the queryObject
-          if (!markerQuery.expand)
-            markerQuery.expand = [];
+        //Check if a queryObject to expand the datastream with id and name is specified
+        var datastreamQuery = markerQuery.expand.find((expand: QueryObject) => {
+          return expand.entityType == 'Datastreams';
+        });
 
-          //Check if a queryObject to expand the datastream with id and name is specified
-          var datastreamQuery = markerQuery.expand.find((expand: QueryObject) => {
-            return expand.entityType == 'Datastreams';
+        if (!datastreamQuery) {
+          markerQuery.expand.push(<QueryObject>{
+            entityType: "Datastreams",
+            select: ["id", "name", "unitOfMeasurement"],
+            expand: [<QueryObject>{ entityType: 'observedProperty' }]
           });
-
-          if (!datastreamQuery) {
-            markerQuery.expand.push(<QueryObject>{
-              entityType: "Datastreams",
-              select: ["id", "name", "unitOfMeasurement"],
-              expand: [<QueryObject>{ entityType: 'observedProperty' }]
-            });
-          }
-          else {
-            if (!datastreamQuery.select) {
-              datastreamQuery.select = ["id", "name", "unitOfMeasurement"];
-            }
-            if (!datastreamQuery.select.includes("id")) {
-              datastreamQuery.select.push("id");
-            }
-
-            if (!datastreamQuery.select.includes("name")) {
-              datastreamQuery.select.push("name");
-            }
-
-            if (!datastreamQuery.select.includes("unitOfMeasurement")) {
-              datastreamQuery.select.push("unitOfMeasurement");
-            }
-          }
-
-          //Check if the Location was expanded
-          if (!markerQuery.expand.some((expand: QueryObject) => {
-            return expand.entityType == 'Locations';
-          })) {
-            markerQuery.expand.push(<QueryObject>{
-              entityType: "Locations",
-            });
-          }
         }
         else {
-          //Add feature to select, if it queries for the FeaturesOfInterest
-          if (markerQuery.select && !markerQuery.select.includes('feature')) {
-            markerQuery.select.push('feature');
+          if (!datastreamQuery.select) {
+            datastreamQuery.select = ["id", "name", "unitOfMeasurement"];
+          }
+          if (!datastreamQuery.select.includes("id")) {
+            datastreamQuery.select.push("id");
           }
 
-          markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
+          if (!datastreamQuery.select.includes("name")) {
+            datastreamQuery.select.push("name");
+          }
+
+          if (!datastreamQuery.select.includes("unitOfMeasurement")) {
+            datastreamQuery.select.push("unitOfMeasurement");
+          }
         }
 
+        //Check if the Location was expanded
+        if (!markerQuery.expand.some((expand: QueryObject) => {
+          return expand.entityType == 'Locations';
+        })) {
+          markerQuery.expand.push(<QueryObject>{
+            entityType: "Locations",
+          });
+        }
+      }
+      else {
+        //Add feature to select, if it queries for the FeaturesOfInterest
+        if (markerQuery.select && !markerQuery.select.includes('feature')) {
+          markerQuery.select.push('feature');
+        }
 
-        //If a filter is already specified, append the geometry query to the old filter
-        if (markerQuery.filter)
-          markerQuery.filter = `(${markerQuery.filter}) and `;
+        markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
+      }
 
-        markerQuery.filter = markerQuery.filter ? markerQuery.filter : '' + polygonToFilter(combine, markerQuery.entityType);
 
-        //Get the data for the markers
-        var markers: any = await this.api.getGeoJson(markerQuery);
+      //If a filter is already specified, append the geometry query to the old filter
+      if (markerQuery.filter)
+        markerQuery.filter = `(${markerQuery.filter}) and `;
 
-        //Iterate all markers
-        markers.value.forEach((marker: any) => {
-          //Get the geoJson of the marker
-          var geoJson: any;
-          if (markerQuery.entityType == 'Things')
-            geoJson = marker.Locations[0].location;
-          else
-            geoJson = marker.feature;
+      var promises = [];
 
-          //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
-          if (geoJson.type == "Point") {
-            geoJson =
-            {
-              "type": "Feature",
-              "geometry": geoJson
+      for (var cord of toMarker) {
+        var query = JSON.parse(JSON.stringify(markerQuery));
+        query.filter = polygonToFilter(cord, query.entityType);
+        promises.push(new Promise(async (resolve, reject) => {
+          var markers: any = await this.api.getGeoJson(query);
+
+          markers.value.forEach((marker: any) => {
+            //Get the geoJson of the marker
+            var geoJson: any;
+            if (markerQuery.entityType == 'Things')
+              geoJson = marker.Locations[0].location;
+            else
+              geoJson = marker.feature;
+
+            //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
+            if (geoJson.type == "Point") {
+              geoJson =
+              {
+                "type": "Feature",
+                "geometry": geoJson
+              }
             }
-          }
 
 
-          delete marker.Locations;
-          geoJson.properties = marker;
-          if (!marker.getData)
-            marker.getData = {};
-          if (markerQuery.entityType == 'Things') {
-            //Iterate through the datastreams
-            for (var datastream of marker.Datastreams) {
-              const id = datastream['@iot.id'];
-              const unitOfMeasurement = datastream.unitOfMeasurement;
-              marker.getData[datastream.ObservedProperty.name] = function (filter: string) {
-                var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations', filter, resultFormat: 'dataArray', orderby: 'phenomenonTime asc', top: 1000 };
-                return new Promise(async (resolve, reject) => {
-                  var data = await this.api.getGeoJson(datastreamQuery);
-                  data.unitOfMeasurement = unitOfMeasurement;
-                  resolve(data);
-                });
-              }.bind(this);
+            delete marker.Locations;
+            geoJson.properties = marker;
+            if (!marker.getData)
+              marker.getData = {};
+            if (markerQuery.entityType == 'Things') {
+              //Iterate through the datastreams
+              for (var datastream of marker.Datastreams) {
+                this.addGetDataCallback(datastream, marker);
+              }
+            } else {
+              const DATASTREAM = marker.Observations[0].Datastream;
+              this.addGetDataCallback(DATASTREAM, marker);
             }
-          } else {
-            const DATASTREAM = marker.Observations[0].Datastream;
-            const id = DATASTREAM['@iot.id'];
-            const unitOfMeasurement = DATASTREAM.unitOfMeasurement;
-            marker.getData[DATASTREAM.ObservedProperty.name] = function (filter: string) {
-              var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations', filter, resultFormat: 'dataArray', orderby: 'phenomenonTime asc', top: 1000 };
-              return new Promise(async (resolve, reject) => {
-                var data = await this.api.getGeoJson(datastreamQuery);
-                data.unitOfMeasurement = unitOfMeasurement;
-                resolve(data);
-              });
-            }.bind(this);
-          }
 
-          //Check if the marker is already in the cache
-          if (!this.cache[zoom].features.some((feature: any) => {
-            return compare_features(geoJson, feature);
-          })) {
-            this.cache[zoom].features.push(geoJson);
-          }
-        });
+            //Check if the marker is already in the cache
+            if (!this.getCached(zoom).features.some((feature: any) => {
+              return compare_features(geoJson, feature);
+            })) {
+              this.addToCache(zoom, geoJson);
+            }
+          });
+          resolve();
+        }))
+      }
+
+      await Promise.all(promises);
+    }
+
+  }
+
+  private addGetDataCallback(datastream: any, marker: any) {
+    const id = datastream['@iot.id'];
+    const unitOfMeasurement = datastream.unitOfMeasurement;
+    marker.getData[datastream.ObservedProperty.name] = function (configureQuery: Function) {
+      var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
+      datastreamQuery = configureQuery(datastreamQuery);
+      return new Promise(async (resolve, reject) => {
+        var data = await this.api.getGeoJson(datastreamQuery);
+        data.unitOfMeasurement = unitOfMeasurement;
+        resolve(data);
+      });
+    }.bind(this);
+  }
+
+  getCached(zoom: number) {
+    if (this.config.cachingDuration) {
+      this.cache = this.cache.filter(function (cache: CacheObject) {
+        //Clone date
+        var date = new Date(cache.timestamp);
+        //Add caching time
+        date.setSeconds(cache.timestamp.getSeconds() + this.config.cachingDuration);
+        //Check if date should be removed
+        return date > new Date();
+      }.bind(this));
+    }
+    var toReturn: any = {
+      "type": "FeatureCollection",
+      "features": []
+    };
+    //Get all geojsons with the given zoom level
+    for (var cache of this.cache) {
+      if (cache.zoom == zoom) {
+        toReturn.features.push(cache.geoJson);
       }
     }
+    return toReturn;
+  }
+
+  addToCache(zoom: number, geoJson: object) {
+    this.cache.push(<CacheObject>{ geoJson, zoom, timestamp: new Date() });
+    this.emitChange(zoom);
+  }
+
+  private emitChange(zoom: number) {
+    var toReturn: any = this.getCached(zoom);
+    //Remove cluster that should not be displayed, but still cached
+    toReturn.features = this.getCached(zoom).features.filter((feature: any) => {
+      if (feature.properties.count == undefined)
+        return true;
+      return feature.properties?.count >= this.config.clusterMin;
+    });
+    this.emit('change', toReturn);
   }
 }
 
@@ -524,4 +583,10 @@ function polygonToFilter(multipolygon: any, entityType: string): string {
     }
     return `geo.intersects(${entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${polygon.map((array: any) => { return array.join(' '); }).join(',')}))')`;
   }).join(' or ');
+}
+
+interface CacheObject {
+  zoom: number,
+  timestamp: Date,
+  geoJson: object
 }

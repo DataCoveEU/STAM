@@ -1,4 +1,5 @@
 import typescript from 'rollup-plugin-typescript2';
+import nodePolyfills from 'rollup-plugin-node-polyfills';
 import {
     terser
 } from "rollup-plugin-terser";
@@ -16,7 +17,8 @@ export default {
         nodeResolve(),
         typescript(),
         terser(),
-        json()
+        json(),
+        nodePolyfills()
     ],
     output: {
         file: './dist/stam.min.js',

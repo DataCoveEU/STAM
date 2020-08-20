@@ -8,25 +8,41 @@ declare var ol: any;
 declare var Plotly: any;
 
 export interface QueryObject {
-  [key: string]: Array<String> | String | Array<QueryObject> | Number | Boolean,
-  entityType: String,
-  filter?: String,
-  select?: Array<String>,
+  [key: string]: Array<string> | string | Array<QueryObject> | number | boolean,
+  entityType: string,
+  filter?: string,
+  select?: Array<string>,
   expand?: Array<QueryObject>
-  top?: Number,
-  skip?: Number,
-  count?: Boolean,
-  id?: Number,
-  resultFormat?: String,
-  orderby?: String,
-  pathSuffix?: String
+  top?: number,
+  skip?: number,
+  count?: boolean,
+  id?: number,
+  resultFormat?: string,
+  orderby?: string,
+  pathSuffix?: string
+}
+
+export interface Range {
+  from: number,
+  to?: number
+}
+
+export interface RangeQuery {
+  zoomLevel: number | Range,
+  query: QueryObject
 }
 
 export interface Config {
-  cluster: Boolean,
+  plot: {
+    startDate: Date,
+    offset?: number,
+    endDate?: Date
+  },
+  cachingDuration: number,
+  cluster: boolean,
   clusterMin: number,
-  queryObject: QueryObject;
-  baseUrl: String,
+  queryObject: QueryObject | Array<RangeQuery>;
+  baseUrl: string,
   markerStyle?: Function | object,
   clusterStyle?: Function | object,
   markerMouseOver?: Function,
@@ -42,6 +58,7 @@ if (typeof L !== "undefined") {
   var layers: any = [];
   //Layer that represents all count circles and tooltips
   var countLayer: any;
+  var geojsonLayer: any;
   //Extend a LayerGroup
   (L as any).Stam = L.LayerGroup.extend({
     initialize: function (config: Config) {
@@ -88,7 +105,10 @@ if (typeof L !== "undefined") {
 
           var map = this._map;
 
+
           var zoom = map.getZoom();
+
+          countLayer = L.layerGroup();
 
           //Called on every feature of the map
           var onEachFeature = (feature: any, layer: any) => {
@@ -116,9 +136,7 @@ if (typeof L !== "undefined") {
 
                 //Configure a click on the cluster, if nothing is configured or nothing returned, the map zooms to the bounds of the polygon 
                 if (config.clusterClick) {
-                  var out = config.clusterClick(feature);
-                  if (out)
-                    return layer.bindPopup(out);
+                  return config.clusterClick(feature);
                 }
                 map.fitBounds(layer.getBounds());
               });
@@ -149,7 +167,7 @@ if (typeof L !== "undefined") {
                 if (defaultPopup) {
                   //Get the popup body
                   var popupElement = document.getElementsByClassName('leaflet-popup-content')[0] as HTMLElement;
-                  createDefaultPopup(popupElement, feature);
+                  createDefaultPopup(popupElement, feature, config);
                 }
               });
 
@@ -186,27 +204,28 @@ if (typeof L !== "undefined") {
 
           //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating 
           map.on('layeradd', function () {
-            //Remove callback
             map.off('layeradd');
-
             //Initiade the count layer and add it to this layer group
-            countLayer = L.layerGroup();
+
+            geojsonLayer = L.geoJSON(null, {
+              onEachFeature,
+              pointToLayer,
+              style: config.clusterStyle
+            });
+
             this.addLayer(countLayer);
+            this.addLayer(geojsonLayer);
 
             //Initiate the layer group with the current bounds and zoom level
             var bounds = map.getBounds();
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((geojson: any) => {
-
-              //Create a geoJson layer and add it to the layers array and to this layer group
-              var geoJsonLayer = L.geoJSON(geojson, {
-                onEachFeature,
-                pointToLayer,
-                style: config.clusterStyle
-              });
-              layers.push(geoJsonLayer);
-              this.addLayer(geoJsonLayer);
-            });
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]);
           });
+
+          mapInterface.on('change', function (geojson: any) {
+            geojsonLayer.clearLayers();
+            geojsonLayer.addData(geojson);
+            clearCluster = true;
+          }.bind(this));
 
 
           //Called when zoom ended or the map was moved. The geojson layer is removed and a new one added, because the loaded geojson's are cached inside the MapInterface
@@ -220,18 +239,7 @@ if (typeof L !== "undefined") {
             var bounds = map.getBounds();
 
             //add a new layer and remove all old layers
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]).then((geojson: any) => {
-              var geoJsonLayer = L.geoJSON(geojson, {
-                onEachFeature,
-                pointToLayer,
-                style: config.clusterStyle
-              });
-              layers.forEach((layer: any) => {
-                layer.remove();
-              });
-              layers.push(geoJsonLayer);
-              this.addLayer(geoJsonLayer);
-            });
+            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]);
           });
         }
       });
@@ -304,6 +312,95 @@ if (typeof ol != "undefined") {
 
     var mapInterface = new MapInterface(config);
 
+    var clearCircles: boolean = false;
+
+    var circleLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+
+    //Create the vectorLayer with the geojson vector source
+    var vectorLayer = new ol.layer.Vector({
+      source: new ol.source.Vector(),
+      // features,
+      style: function (feature: any) {
+        if (clearCircles) {
+          clearCircles = false;
+          circleLayer.getSource().clear();
+        }
+        //Check the feature type
+        if (feature.getGeometry().getType() == "Point") {
+          //Add the marker image
+          var style = new ol.style.Style({
+            image: new ol.style.Icon(({
+              anchor: [0.5, 1],
+              scale: 0.5,
+              anchorXUnits: 'fraction',
+              anchorYUnits: 'fraction',
+              //Call function if present, with the feature, if not use the color name if present. Default is blue
+              src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${typeof config.markerStyle == 'function' ? config.markerStyle(olToGeoJSON(feature)) : config.markerStyle ? config.markerStyle : 'blue'}.png`
+            })),
+          })
+
+          return style;
+        } else {
+          if (feature.get('count') != undefined) {
+            //Get extends of cluster
+            var cords = feature.getGeometry().getExtent();
+
+            //Calculate middle
+            var long = (cords[0] + cords[2]) / 2;
+            var lat = (cords[1] + cords[3]) / 2;
+
+            //Add circle with text
+            var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
+            circle.setStyle(new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                width: 2,
+                color: 'red',
+                radius: 1
+              }),
+              text: new ol.style.Text({
+                font: 30 + 'px Calibri,sans-serif',
+                fill: new ol.style.Fill({ color: '#000' }),
+                stroke: new ol.style.Stroke({
+                  color: '#fff', width: 2
+                }),
+                text: `${feature.get('count')}`
+              })
+            }));
+            circleLayer.getSource().addFeature(circle);
+
+            //return style of feature
+            return new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: 'blue',
+                width: 3,
+              }),
+              fill: new ol.style.Fill({ color: 'rgba(0, 0, 0, 0)' })
+            });
+          }
+        }
+      }
+    });
+
+    var layer = new ol.layer.Group({ layers: [circleLayer, vectorLayer] });
+    //layer.on('change', () => { olmap.render() });
+    olmap.addLayer(layer);
+
+
+    var format = new ol.format.GeoJSON({
+      featureProjection: olmap.getView().getProjection().getCode()
+    });
+
+    //Fetch the geojson
+    mapInterface.on('change', (geoJson: any) => {
+
+      vectorLayer.getSource().clear();
+
+      clearCircles = true;
+
+      //Create the geojson with  geojson and set the featureProjection to the view's projection
+      vectorLayer.getSource().addFeatures(format.readFeatures(geoJson))
+    });
+
     //If popup is not in the html dom, add it
     if (!document.getElementById('popup')) {
       document.writeln(`<div id="popup" class="ol-popup">
@@ -334,18 +431,6 @@ if (typeof ol != "undefined") {
     //Add popup to map
     olmap.addOverlay(overlay);
 
-    //Cursor as pointer when over a marker
-    olmap.on("pointermove", function (evt: any) {
-      var hit = this.forEachFeatureAtPixel(evt.pixel, function (feature: any) {
-        return feature.get('name') != "cluster";
-      });
-      if (hit) {
-        this.getTargetElement().style.cursor = 'pointer';
-      } else {
-        this.getTargetElement().style.cursor = '';
-      }
-    });
-
     var selected: any = null;
 
     var highlightStyle = new ol.style.Style({
@@ -358,6 +443,7 @@ if (typeof ol != "undefined") {
       }),
     });
 
+    var last: any = null;
 
     olmap.on('pointermove', function (e: any) {
       if (selected !== null) {
@@ -365,13 +451,30 @@ if (typeof ol != "undefined") {
         selected = null;
       }
 
-      olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
+      var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
         if (f.get('count')) {
+          if (last != f) {
+            last = f;
+            if (config.clusterMouseOver) config.clusterMouseOver(olToGeoJSON(f));
+          }
           selected = f;
           f.setStyle(highlightStyle);
-          return true;
+          return f;
+        } else {
+          if (f.get('@iot.id')) {
+            if (last != f) {
+              last = f;
+              if (config.markerMouseOver) config.markerMouseOver(olToGeoJSON(f));
+            }
+          }
         }
       });
+
+      if (hit) {
+        this.getTargetElement().style.cursor = 'pointer';
+      } else {
+        this.getTargetElement().style.cursor = '';
+      }
     });
 
 
@@ -379,7 +482,7 @@ if (typeof ol != "undefined") {
     olmap.on('click', function (evt: any) {
       //Get the clicked feature
       var feature = olmap.forEachFeatureAtPixel(evt.pixel,
-        function (feature: any, layer: any) {
+        function (feature: any) {
           return feature;
         });
       //Check if feature was clicked
@@ -397,7 +500,7 @@ if (typeof ol != "undefined") {
 
           //If no content, just insert the default content
           if (!content) {
-            createDefaultPopup(content_element, olToGeoJSON(feature));
+            createDefaultPopup(content_element, olToGeoJSON(feature), config);
           } else {
             content_element.innerHTML = content;
           }
@@ -423,30 +526,7 @@ if (typeof ol != "undefined") {
       }
 
       //always add new layer, because the geojson is cached inside MapInterface.ts
-      addSTAMLayer(mapInterface, zoom, config).then(function (layer: any) {
-        this.getLayers().array_.push(layer);
-
-        this.changed();
-
-        //remove all old layers, if they are inside the olLayers array
-        this.getLayers().array_ = this.getLayers().array_.filter(function (layer: any) {
-          if (olLayers.indexOf(layer) != -1) {
-            return false;
-          }
-          return true;
-        }.bind(this));
-
-        //Force a map render when layer is changed
-        layer.on('change', () => { olmap.render() });
-
-        olmap.render();
-
-
-        //Clear the olLayers array and push the new layer
-        olLayers = [];
-        olLayers.push(layer);
-
-      }.bind(this));
+      addSTAMLayer(mapInterface, zoom, config, olmap);
     });
   };
 
@@ -462,70 +542,98 @@ if (typeof ol != "undefined") {
  * @param content_element popup content element
  * @param feature GeoJSON feature that was clicked
  */
-function createDefaultPopup(content_element: HTMLElement, feature: any) {
+function createDefaultPopup(content_element: HTMLElement, feature: any, config: Config) {
   content_element.innerHTML = '<h3>' + feature.properties.name + '</h3>';
 
   var list = document.createElement('ul');
 
   //Iterate all ObservedProperties
-  Object.keys(feature.properties.getData).forEach((key: string) => {
+  Object.keys(feature.properties.getData).forEach(function (key: string) {
 
     //Create new list element
     var li = document.createElement('li');
     li.innerText = key;
     //Set cursor style on hover
     li.setAttribute('style', "cursor: pointer");
-    li.onclick = function () {
-      //Create new popup
-      picoModal({
-        width: 1140, content: '', modalId: 'pico-1'
-      }).beforeClose(function () {
-        Plotly.purge("pico-1");
-        //Remove pico-1 element from DOM
-        document.getElementById("pico-1").remove();
-      }).afterShow(async function () {
+    if (typeof Plotly != 'undefined') {
+      li.onclick = function () {
+        //Create new popup
+        picoModal({
+          width: 1140, content: '', modalId: 'pico-1'
+        }).beforeClose(function () {
+          Plotly.purge("pico-1");
+          //Remove pico-1 element from DOM
+          document.getElementById("pico-1").remove();
+        }).afterShow(async function () {
 
-        var result = await feature.properties.getData[key]();
+          var reverse: boolean = false;
+          var result = await feature.properties.getData[key](function (query: QueryObject) {
+            query.resultFormat = 'dataArray';
+            query.orderby = 'phenomenonTime asc';
+            if (config.plot) {
+              var operator: string = 'gt';
+              if (config.plot.offset) {
+                query.top = Math.abs(config.plot.offset);
+                if (Math.sign(config.plot.offset) == -1) {
+                  reverse = true;
+                  query.orderby = 'phenomenonTime desc';
+                  operator = 'lt';
+                }
 
-        //SHOW diagram
+                query.filter = `phenomenonTime ${operator} ${config.plot.startDate.toISOString()}`;
+              } else {
+                if (config.plot.endDate) {
+                  query.filter = `(phenomenonTime gt ${config.plot.startDate.toISOString()}) and (phenomenonTime lt ${config.plot.endDate.toISOString()})`;
+                }
+              }
+            }
+            return query;
+          });
 
-        var x: any = [];
-        var y: any = [];
+          //SHOW diagram
 
-        result.value.forEach((Datastream: any) => {
+          var x: any = [];
+          var y: any = [];
+
+          var Datastream = result.value;
+          if (reverse) {
+            Datastream.dataArray = Datastream.dataArray.reverse();
+          }
           Datastream.dataArray.forEach((Observation: any) => {
             if (Observation[1].indexOf('/') != -1) {
               x.push(Observation[1].split('/')[0]);
+              x.push(Observation[1].split('/')[1]);
+              y.push(Observation[2]);
             } else {
               x.push(Observation[1]);
             }
             y.push(Observation[2]);
           });
-        })
 
-        var trace1 = {
-          x,
-          y,
-          type: 'scatter'
-        };
+          var trace1 = {
+            x,
+            y,
+            type: 'scatter'
+          };
 
-        var data: any = [trace1];
+          var data: any = [trace1];
 
-        var layout = {
-          height: 300,
-          xaxis: {
-            autorange: true
-          },
-          yaxis: {
-            autorange: true,
-            title: { text: result.unitOfMeasurement.name }
-          },
-          autosize: true
-        };
+          var layout = {
+            height: 300,
+            xaxis: {
+              autorange: true
+            },
+            yaxis: {
+              autorange: true,
+              title: { text: result.unitOfMeasurement.name }
+            },
+            autosize: true
+          };
 
-        Plotly.newPlot('pico-1', data, layout);
-      }).show();
-    };
+          Plotly.newPlot('pico-1', data, layout);
+        }).show();
+      };
+    }
     //Append to list
     list.appendChild(li);
   });
@@ -540,101 +648,22 @@ function createDefaultPopup(content_element: HTMLElement, feature: any) {
  * @param zoom current zoom level
  * @returns a promise that resolves with an openLayers vectorLayer that contains the geoJson
  */
-function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config) {
-  return new Promise(function (resolve, reject) {
-    var bounds;
+function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config, map: any) {
+  var bounds;
 
-    //Check it the projection is EPSG 4326
-    if (olmap.getView().getProjection().getCode() == "EPSG:4326")
-      bounds = olmap.getView().calculateExtent();
-    else {
-      //If not convert the bounding box to EPSG 4326
-      var zw = olmap.getView().calculateExtent();
-      var code = olmap.getView().getProjection().getCode();
-      bounds = [];
-      bounds.push(...(new ol.geom.Point([zw[2], zw[3]])).transform(code, 'EPSG:4326').getCoordinates());
-      bounds.push(...(new ol.geom.Point([zw[0], zw[1]])).transform(code, 'EPSG:4326').getCoordinates());
-    }
+  //Check it the projection is EPSG 4326
+  if (olmap.getView().getProjection().getCode() == "EPSG:4326")
+    bounds = olmap.getView().calculateExtent();
+  else {
+    //If not convert the bounding box to EPSG 4326
+    var zw = olmap.getView().calculateExtent();
+    var code = olmap.getView().getProjection().getCode();
+    bounds = [];
+    bounds.push(...(new ol.geom.Point([zw[2], zw[3]])).transform(code, 'EPSG:4326').getCoordinates());
+    bounds.push(...(new ol.geom.Point([zw[0], zw[1]])).transform(code, 'EPSG:4326').getCoordinates());
+  }
 
-
-    //Fetch the geojson
-    mapInterface.getLayerData(zoom, bounds).then((geoJson: any) => {
-
-      //Create the geojson with  geojson and set the featureProjection to the view's projection
-      var vectorSource = new ol.source.Vector({
-        features: new ol.format.GeoJSON().readFeatures(geoJson, { featureProjection: olmap.getView().getProjection().getCode() }),
-      });
-
-      var circleSource = new ol.source.Vector();
-
-      var circleLayer = new ol.layer.Vector({ source: circleSource });
-
-
-      //Create the vectorLayer with the geojson vector source
-      var vectorLayer = new ol.layer.Vector({
-        source: vectorSource,
-        // features,
-        style: function (feature: any) {
-          //Check the feature type
-          if (feature.getGeometry().getType() == "Point") {
-            //Add the marker image
-            var style = new ol.style.Style({
-              image: new ol.style.Icon(({
-                anchor: [0.5, 1],
-                scale: 0.5,
-                anchorXUnits: 'fraction',
-                anchorYUnits: 'fraction',
-                //Call function if present, with the feature, if not use the color name if present. Default is blue
-                src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${typeof config.markerStyle == 'function' ? config.markerStyle(olToGeoJSON(feature)) : config.markerStyle ? config.markerStyle : 'blue'}.png`
-              })),
-            })
-
-            return style;
-          } else {
-            if (feature.get('count') != undefined) {
-              //Get extends of cluster
-              var cords = feature.getGeometry().getExtent();
-
-              //Calculate middle
-              var long = (cords[0] + cords[2]) / 2;
-              var lat = (cords[1] + cords[3]) / 2;
-
-              //Add circle with text
-              var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
-              circle.setStyle(new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                  width: 2,
-                  color: 'red',
-                  radius: 1
-                }),
-                text: new ol.style.Text({
-                  font: 30 + 'px Calibri,sans-serif',
-                  fill: new ol.style.Fill({ color: '#000' }),
-                  stroke: new ol.style.Stroke({
-                    color: '#fff', width: 2
-                  }),
-                  text: `${feature.get('count')}`
-                })
-              }));
-              circleSource.addFeature(circle);
-
-              //return style of feature
-              return new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                  color: 'blue',
-                  width: 3,
-                }),
-                fill: new ol.style.Fill({ color: 'rgba(0, 0, 0, 0)' })
-              });
-            }
-          }
-        }
-      });
-
-      //Resolve the promise with the vector layer
-      resolve(new ol.layer.Group({ layers: [vectorLayer, circleLayer] }));
-    });
-  });
+  mapInterface.getLayerData(zoom, bounds);
 }
 
 /**
