@@ -32,6 +32,19 @@ export interface RangeQuery {
   query: QueryObject
 }
 
+export interface Path {
+  color: string,
+  weight: number,
+  opacity: number,
+  fillColor: string,
+  fillOpacity: number,
+}
+
+export interface Style {
+  hover: Path,
+  default: Path
+}
+
 export interface Config {
   plot: {
     startDate: Date,
@@ -43,8 +56,11 @@ export interface Config {
   clusterMin: number,
   queryObject: QueryObject | Array<RangeQuery>;
   baseUrl: string,
-  markerStyle?: Function | object,
-  clusterStyle?: Function | object,
+  markerStyle?: Function | string,
+  clusterStyle?: Function | {
+    circle: Path,
+    polygon: Style
+  },
   markerMouseOver?: Function,
   markerClick?: Function,
   clusterMouseOver?: Function,
@@ -349,29 +365,55 @@ if (typeof ol != "undefined") {
             var long = (cords[0] + cords[2]) / 2;
             var lat = (cords[1] + cords[3]) / 2;
 
+            var style: any = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(feature)) : config.clusterStyle;
+
+            var circleStyle = style.circle as Path;
+            var polygonStyle = style.polygon.default as Path;
+
+
+
             //Add circle with text
             var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
-            circle.setStyle(new ol.style.Style({
+
+            var text = new ol.style.Text({
+              font: 30 + 'px Calibri,sans-serif',
+              fill: new ol.style.Fill({ color: '#000' }),
               stroke: new ol.style.Stroke({
-                width: 2,
-                color: 'red',
-                radius: 1
+                color: '#fff', width: 2
               }),
-              text: new ol.style.Text({
-                font: 30 + 'px Calibri,sans-serif',
-                fill: new ol.style.Fill({ color: '#000' }),
+              text: `${feature.get('count')}`
+            });
+
+            if (circleStyle) {
+              var style = pathToOl(circleStyle);
+              style.setText(text);
+              circle.setStyle(style);
+            } else {
+              circle.setStyle(new ol.style.Style({
                 stroke: new ol.style.Stroke({
-                  color: '#fff', width: 2
+                  width: 2,
+                  color: 'red',
+                  radius: 1
                 }),
-                text: `${feature.get('count')}`
-              })
-            }));
+                text
+              }));
+            }
             circleLayer.getSource().addFeature(circle);
 
             //return style of feature
-            return new ol.style.Style({
+            if (config.clusterStyle) {
+              if (typeof config.clusterStyle == 'function') {
+                config.clusterStyle(olToGeoJSON(feature))
+              } else {
+
+              }
+            }
+            if (polygonStyle) {
+              polygonStyle = pathToOl(polygonStyle)
+            }
+            return polygonStyle ?? new ol.style.Style({
               stroke: new ol.style.Stroke({
-                color: 'blue',
+                color: 'rgba(0, 0, 0, 0)',
                 width: 3,
               }),
               fill: new ol.style.Fill({ color: 'rgba(0, 0, 0, 0)' })
@@ -433,7 +475,7 @@ if (typeof ol != "undefined") {
 
     var selected: any = null;
 
-    var highlightStyle = new ol.style.Style({
+    var defaultHighlightStyle = new ol.style.Style({
       fill: new ol.style.Fill({
         color: 'rgba(255,255,255,0.7)',
       }),
@@ -446,10 +488,6 @@ if (typeof ol != "undefined") {
     var last: any = null;
 
     olmap.on('pointermove', function (e: any) {
-      if (selected !== null) {
-        selected.setStyle(undefined);
-        selected = null;
-      }
 
       var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
         if (f.get('count')) {
@@ -457,9 +495,21 @@ if (typeof ol != "undefined") {
             last = f;
             if (config.clusterMouseOver) config.clusterMouseOver(olToGeoJSON(f));
           }
-          selected = f;
-          f.setStyle(highlightStyle);
-          return f;
+          if (selected != f) {
+            selected?.setStyle(undefined);
+
+            selected = f;
+          }
+
+          var style;
+          if (config.clusterStyle) {
+            var clusterStyle = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(f)).polygon.hover : config.clusterStyle.polygon.hover
+            style = pathToOl(clusterStyle);
+          } else {
+            var style = defaultHighlightStyle;
+          }
+
+          f.setStyle(style);
         } else {
           if (f.get('@iot.id')) {
             if (last != f) {
@@ -468,11 +518,17 @@ if (typeof ol != "undefined") {
             }
           }
         }
+
+        return f;
       });
 
       if (hit) {
         this.getTargetElement().style.cursor = 'pointer';
       } else {
+        if (selected) {
+          selected?.setStyle(undefined);
+          selected = null;
+        }
         this.getTargetElement().style.cursor = '';
       }
     });
@@ -619,7 +675,7 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
           var data: any = [trace1];
 
           var layout = {
-            height: 300,
+            height: 200,
             xaxis: {
               autorange: true
             },
@@ -674,3 +730,19 @@ function olToGeoJSON(feature: any): any {
   return { type: feature.getGeometry().getType(), properties: feature.getProperties(), geometry: { type: 'Point', coordinates: feature.getGeometry().getCoordinates() } };
 }
 
+function pathToOl(path: Path) {
+  return new ol.style.Style({
+    stroke: new ol.style.Stroke({
+      color: colorWithAlpha(path.color ?? 'red', path.opacity),
+      width: path.weight ?? 1
+    }),
+    fill: new ol.style.Fill({
+      color: path.fillColor ? colorWithAlpha(path.fillColor, path.fillOpacity) : 'rgba(0, 0, 0, 0)'
+    })
+  });
+}
+
+function colorWithAlpha(color: any, alpha: any = 1) {
+  const [r, g, b] = Array.from(ol.color.asArray(color));
+  return ol.color.asString([r, g, b, alpha]);
+}

@@ -47,7 +47,6 @@ export class STAInterface {
         //Update next link
         link = response['@iot.nextLink'];
       }
-      console.log(data);
       resolve(data);
     });
   }

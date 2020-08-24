@@ -7,14 +7,8 @@ import {
 import {
   STAInterface
 } from './STAInterface';
-// @ts-ignore
-import * as p from 'polygon-clipping';
-const poly = (p as any).default;
-
-//import { EventEmitter } from 'tsee';
 
 import { EventEmitter } from "events"
-import { QueryGenerator } from './QueryGenerator';
 
 
 
