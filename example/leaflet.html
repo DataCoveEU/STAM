@@ -36,15 +36,7 @@
             //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
             markerStyle: async (feature) => {
-                console.log(feature);
                 return "yellow";
-            },
-
-            markerClick: function (feature) {
-                //return `<span>${JSON.stringify(feature)}</span>`
-            },
-            clusterClick: function (f) {
-                console.log("CLUSTER", f)
             },
             cluster: true,
             clusterStyle: {
@@ -55,7 +47,8 @@
                         weight: 1
                     },
                     default: {
-                        color: 'orange'
+                        color: 'orange',
+                        weight: 1
                     }
                 },
 

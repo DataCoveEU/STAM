@@ -199,11 +199,9 @@ if (typeof L !== "undefined") {
               //Add the circle to the countLayer
               countLayer.addLayer(circle);
             } else {
-
               var defaultPopup: boolean = true;
               //Used for creating the default popup body
               layer.on('popupopen', function (e: any) {
-                console.log(e);
                 if (defaultPopup) {
                   //Create default popup
                   createDefaultPopup(e.popup.getElement().getElementsByClassName('leaflet-popup-content')[0] as HTMLElement, feature, config);
@@ -241,12 +239,12 @@ if (typeof L !== "undefined") {
           var pointToLayer = function (feature: any, latlng: any) {
             //Check if style function is async
             if (typeof config.markerStyle == 'function' && config.markerStyle.constructor.name === "AsyncFunction") {
-              var emptyGroup = L.layerGroup();
+              var marker = L.marker(latlng);
               //Add marker to layerGroup when done
               config.markerStyle(feature).then((color: string) => {
-                L.marker(latlng, { icon: textToMarker(color) }).addTo(emptyGroup);
+                marker.setIcon(textToMarker(color));
               });
-              return emptyGroup;
+              return marker;
             } else {
               //Marker coloring
               var marker = L.marker(latlng, { icon: typeof config.markerStyle == 'function' ? textToMarker(config.markerStyle(feature)) : typeof config.markerStyle == 'string' ? textToMarker(config.markerStyle) : new L.Icon.Default() });
