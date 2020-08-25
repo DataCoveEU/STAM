@@ -260,13 +260,17 @@ export class MapInterface extends EventEmitter {
           return compare_features(feature, feature2);
         });
 
+        //Check if polygon is cached
         if (!existing) {
           promises.push(new Promise(async (resolve, reject) => {
+            //Check if clustering is enabled
             if (this.config.cluster || this.config.cluster == undefined) {
+              //Get count for the polygon
               var data: any = await this.api.getGeoJson(QUERYCOPY);
               feature.properties.count = data["@iot.count"];
               this.addToCache(zoom, feature);
             } else {
+              //Don't get the data if clustering is disabled
               this.addToCache(zoom, feature, false);
             }
             resolve(feature);
@@ -277,6 +281,7 @@ export class MapInterface extends EventEmitter {
 
     var counts = await Promise.all(promises);
 
+    //Push all features to the recs array
     counts.forEach((feature: any) => {
       recs.push(feature);
     });
@@ -297,6 +302,11 @@ export class MapInterface extends EventEmitter {
 
   }
 
+  /**
+   * Helper function to get all markers in the given polygons
+   * @param toMarker Array of all coordinates of the polygons the markers to get are in
+   * @param zoom current zoom level
+   */
   private async getMarkers(toMarker: any, zoom: number) {
     if (toMarker.length != 0) {
 
@@ -315,7 +325,9 @@ export class MapInterface extends EventEmitter {
           return expand.entityType == 'Datastreams';
         });
 
+        //Check if a datastream query is specified
         if (!datastreamQuery) {
+          //Add expand
           markerQuery.expand.push(<QueryObject>{
             entityType: "Datastreams",
             select: ["id", "name", "unitOfMeasurement"],
@@ -364,15 +376,20 @@ export class MapInterface extends EventEmitter {
 
       var promises = [];
 
+      //Iterate all polygons of the toMarker array
       for (var cord of toMarker) {
+        //Deep clone
         var query = JSON.parse(JSON.stringify(markerQuery));
+        //Apply filter
         query.filter = polygonToFilter(cord, query.entityType);
+        //Get data
         promises.push(new Promise(async (resolve, reject) => {
           var markers: any = await this.api.getGeoJson(query);
 
           markers.value.forEach((marker: any) => {
             //Get the geoJson of the marker
             var geoJson: any;
+            //Check for the entityType
             if (markerQuery.entityType == 'Things')
               geoJson = marker.Locations[0].location;
             else
@@ -388,16 +405,23 @@ export class MapInterface extends EventEmitter {
             }
 
 
+            //Delete the Locations, so they are not in the geojson's properties
             delete marker.Locations;
+
+            //Add the properties
             geoJson.properties = marker;
+            //add getData object if not present
             if (!marker.getData)
               marker.getData = {};
+
+            //Check for the entityType
             if (markerQuery.entityType == 'Things') {
               //Iterate through the datastreams
               for (var datastream of marker.Datastreams) {
                 this.addGetDataCallback(datastream, marker);
               }
             } else {
+              //Get the datastream of the FeatureOfInterest
               const DATASTREAM = marker.Observations[0].Datastream;
               this.addGetDataCallback(DATASTREAM, marker);
             }
@@ -413,25 +437,42 @@ export class MapInterface extends EventEmitter {
         }))
       }
 
+      //Await all promises
       await Promise.all(promises);
     }
 
   }
 
+  /**
+   * Create a getter for the observations of a datastream
+   * @param datastream Datastream to create the function for
+   * @param marker GeoJson of the marker
+   */
   private addGetDataCallback(datastream: any, marker: any) {
+    //Get the id
     const id = datastream['@iot.id'];
+    //Get the unit
     const unitOfMeasurement = datastream.unitOfMeasurement;
+    //Add the function, with the id as the key
     marker.getData[datastream.ObservedProperty.name] = function (configureQuery: Function) {
+      //Add query
       var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
+      //Use the return value of the callback function
       datastreamQuery = configureQuery(datastreamQuery);
       return new Promise(async (resolve, reject) => {
+        //Get the data
         var data = await this.api.getGeoJson(datastreamQuery);
+        //Add unit to the data object
         data.unitOfMeasurement = unitOfMeasurement;
         resolve(data);
       });
     }.bind(this);
   }
 
+  /**
+   * Get all cached geojson's in a featureCollection and delete all expired geojson's
+   * @param zoom Current zoom level
+   */
   getCached(zoom: number) {
     if (this.config.cachingDuration) {
       this.cache = this.cache.filter(function (cache: CacheObject) {
@@ -456,21 +497,34 @@ export class MapInterface extends EventEmitter {
     return toReturn;
   }
 
+  /**
+   * Add a geojson to the cache
+   * @param zoom Current zoom level
+   * @param geoJson GeoJson to add
+   * @param emitEvent Flag if a change event should be emitted
+   */
   addToCache(zoom: number, geoJson: object, emitEvent: boolean = true) {
     this.cache.push(<CacheObject>{ geoJson, zoom, timestamp: new Date() });
     if (emitEvent) this.emitChange(zoom);
   }
 
+  /**
+   * Emits a change event with the geojson for the current zoom level as an argument
+   * @param zoom Current zoom leel
+   */
   private emitChange(zoom: number) {
     var toReturn: any = this.getCached(zoom);
     //Remove cluster that should not be displayed, but still cached
     toReturn.features = this.getCached(zoom).features.filter((feature: any) => {
+      //Check if count is present, if not return the value
       if (feature.properties?.count == undefined)
         return true;
 
+      //Check if clustering is disabled
       if (this.config.cluster == false)
         return feature.properties?.count == undefined;
 
+      //Return only the polygons with a higher count as specified
       return feature.properties?.count >= this.config.clusterMin;
     });
     this.emit('change', toReturn);
@@ -520,6 +574,9 @@ function polygonToFilter(multipolygon: any, entityType: string): string {
   }).join(' or ');
 }
 
+/**
+ * Cached objects
+ */
 interface CacheObject {
   zoom: number,
   timestamp: Date,

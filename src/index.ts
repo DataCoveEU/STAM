@@ -54,7 +54,7 @@ export interface Config {
   cachingDuration: number,
   cluster: boolean,
   clusterMin: number,
-  queryObject: QueryObject | Array<RangeQuery>;
+  queryObject: QueryObject | Array<RangeQuery>,
   baseUrl: string,
   markerStyle?: Function | string,
   clusterStyle?: Function | {
@@ -239,9 +239,19 @@ if (typeof L !== "undefined") {
 
           //Used for marker styling
           var pointToLayer = function (feature: any, latlng: any) {
-            //Marker coloring
-            var marker = L.marker(latlng, { icon: typeof config.markerStyle == 'function' ? textToMarker(config.markerStyle(feature)) : typeof config.markerStyle == 'string' ? textToMarker(config.markerStyle) : new L.Icon.Default() });
-            return marker;
+            //Check if style function is async
+            if (typeof config.markerStyle == 'function' && config.markerStyle.constructor.name === "AsyncFunction") {
+              var emptyGroup = L.layerGroup();
+              //Add marker to layerGroup when done
+              config.markerStyle(feature).then((color: string) => {
+                L.marker(latlng, { icon: textToMarker(color) }).addTo(emptyGroup);
+              });
+              return emptyGroup;
+            } else {
+              //Marker coloring
+              var marker = L.marker(latlng, { icon: typeof config.markerStyle == 'function' ? textToMarker(config.markerStyle(feature)) : typeof config.markerStyle == 'string' ? textToMarker(config.markerStyle) : new L.Icon.Default() });
+              return marker;
+            }
           }
 
           //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating 
@@ -347,6 +357,23 @@ if (typeof ol != "undefined") {
         }
         //Check the feature type
         if (feature.getGeometry().getType() == "Point") {
+          //Check if it is a async function
+          if (typeof config.markerStyle == 'function' && config.markerStyle.constructor.name === "AsyncFunction") {
+            //Get the color an set the style
+            config.markerStyle(olToGeoJSON(feature)).then((color: string) => {
+              feature.setStyle(new ol.style.Style({
+                image: new ol.style.Icon(({
+                  anchor: [0.5, 1],
+                  scale: 0.5,
+                  anchorXUnits: 'fraction',
+                  anchorYUnits: 'fraction',
+                  //Call function if present, with the feature, if not use the color name if present. Default is blue
+                  src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`
+                })),
+              }));
+            });
+            return null;
+          }
           //Add the marker image
           var style = new ol.style.Style({
             image: new ol.style.Icon(({
@@ -357,7 +384,7 @@ if (typeof ol != "undefined") {
               //Call function if present, with the feature, if not use the color name if present. Default is blue
               src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${typeof config.markerStyle == 'function' ? config.markerStyle(olToGeoJSON(feature)) : config.markerStyle ? config.markerStyle : 'blue'}.png`
             })),
-          })
+          });
 
           return style;
         } else {
