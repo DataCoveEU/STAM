@@ -119,7 +119,8 @@ The config is used to specify the style and behaviour of the displayed content
 	}>,
 	//The base url of the Sensorthings API
 	baseUrl: string,
-	//Specifies the color of the marker. The functions gets the geojson as a parameter and has to return the color. The function can be async
+  //Specifies the color of the marker. The functions gets the geojson as a parameter and has to return the color. The function can be async.
+  //Valid colors: green, black, blue, grey, violet, orange, red, yellow, gold
 	markerStyle?: Function | string,
 	//Used to style the cluster. Can be a function that returns the second specified interface
 	clusterStyle?: Function | {
