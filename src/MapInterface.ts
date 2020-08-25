@@ -1,17 +1,11 @@
+import { EventEmitter } from "events";
 import {
   Config,
   QueryObject,
-  RangeQuery,
-  Range
+
+  Range, RangeQuery
 } from './index';
-import {
-  STAInterface
-} from './STAInterface';
-
-import { EventEmitter } from "events"
-
-
-
+import { STAInterface } from './STAInterface';
 
 export class MapInterface extends EventEmitter {
   config: Config;
@@ -200,163 +194,106 @@ export class MapInterface extends EventEmitter {
     }
 
 
-    if (this.config.cluster || this.config.cluster == undefined) {
+    //Only query the count not the data
+    correctedQuery.count = true;
+    correctedQuery.top = 0;
 
-      //Only query the count not the data
-      correctedQuery.count = true;
-      correctedQuery.top = 0;
-
-      //Get the coordinates of the top left and bottom right
-      var top = { lat: this.lat2tile(boundingBox[1], zoom), lng: this.long2tile(boundingBox[0], zoom) };
-      var bottom = { lat: this.lat2tile(boundingBox[3], zoom), lng: this.long2tile(boundingBox[2], zoom) };
+    //Get the coordinates of the top left and bottom right
+    var top = { lat: this.lat2tile(boundingBox[1], zoom), lng: this.long2tile(boundingBox[0], zoom) };
+    var bottom = { lat: this.lat2tile(boundingBox[3], zoom), lng: this.long2tile(boundingBox[2], zoom) };
 
 
-      var recs: any = [];
+    var recs: any = [];
 
-      var promises: any = [];
+    var promises: any = [];
 
-      //Iterate all OSM tiles
-      for (var x = bottom.lng; x <= top.lng; x++) {
-        for (var y = top.lat; y <= bottom.lat; y++) {
-          //Get top and bottom coordinates
-          const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
-          const B = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
+    //Iterate all OSM tiles
+    for (var x = bottom.lng; x <= top.lng; x++) {
+      for (var y = top.lat; y <= bottom.lat; y++) {
+        //Get top and bottom coordinates
+        const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
+        const B = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
 
-          //Clone the query object
-          const QUERYCOPY = JSON.parse(JSON.stringify(correctedQuery));
+        //Clone the query object
+        const QUERYCOPY = JSON.parse(JSON.stringify(correctedQuery));
 
-          //Get the ST filter
-          const GEOFILTER = polygonToFilter([
-            [
-              [T.lng, T.lat],
-              [T.lng, B.lat],
-              [B.lng, B.lat],
-              [B.lng, T.lat],
-              [T.lng, T.lat]
-            ]
-          ], QUERYCOPY.entityType);
+        //Get the ST filter
+        const GEOFILTER = polygonToFilter([
+          [
+            [T.lng, T.lat],
+            [T.lng, B.lat],
+            [B.lng, B.lat],
+            [B.lng, T.lat],
+            [T.lng, T.lat]
+          ]
+        ], QUERYCOPY.entityType);
 
-          //Append it to old filter if given
-          if (QUERYCOPY.filter) {
-            QUERYCOPY.filter = `(${QUERYCOPY.filter}) and ${GEOFILTER}`;
-          } else {
-            QUERYCOPY.filter = GEOFILTER;
-          }
+        //Append it to old filter if given
+        if (QUERYCOPY.filter) {
+          QUERYCOPY.filter = `(${QUERYCOPY.filter}) and ${GEOFILTER}`;
+        } else {
+          QUERYCOPY.filter = GEOFILTER;
+        }
 
-          //Create a geojson polygon with tbe given coordinates
-          const feature = {
-            "type": "Feature",
-            "geometry": {
-              "type": "Polygon",
-              "coordinates": [
-                [
-                  [T.lng, T.lat],
-                  [T.lng, B.lat],
-                  [B.lng, B.lat],
-                  [B.lng, T.lat],
-                  [T.lng, T.lat]
-                ]
+        //Create a geojson polygon with tbe given coordinates
+        const feature = {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [T.lng, T.lat],
+                [T.lng, B.lat],
+                [B.lng, B.lat],
+                [B.lng, T.lat],
+                [T.lng, T.lat]
               ]
-            },
-            "properties": {
-              "count": 0
-            }
-          };
+            ]
+          },
+          "properties": {
+            "count": 0
+          }
+        };
 
-          //Check if a polygon is already present
-          const existing = this.getCached(zoom).features.find((feature2: any) => {
-            return compare_features(feature, feature2);
-          });
+        //Check if a polygon is already present
+        const existing = this.getCached(zoom).features.find((feature2: any) => {
+          return compare_features(feature, feature2);
+        });
 
-          if (!existing) {
-            promises.push(new Promise(async (resolve, reject) => {
+        if (!existing) {
+          promises.push(new Promise(async (resolve, reject) => {
+            if (this.config.cluster || this.config.cluster == undefined) {
               var data: any = await this.api.getGeoJson(QUERYCOPY);
               feature.properties.count = data["@iot.count"];
               this.addToCache(zoom, feature);
-              resolve(feature);
-            }));
-          }
-        }
-      }
-
-      var counts = await Promise.all(promises);
-
-      counts.forEach((feature: any) => {
-        if (feature) {
-          recs.push(feature);
-        }
-      });
-
-      var toMarker: any = [];
-
-      //Iterate all polygons
-      recs.forEach((feature: any) => {
-        //Check if markers should be loaded
-        if (feature.properties.count < this.config.clusterMin) {
-          toMarker.push(feature.geometry.coordinates);
-        }
-      });
-
-      //Load markers
-      await this.getMarkers(toMarker, zoom);
-    } else {
-
-      //Get the OSM tiles bounding box
-      var OSMBOundingBox = this.getOSMBoundingBox(zoom, boundingBox);
-
-      var topLat = OSMBOundingBox[0]
-      var topLong = OSMBOundingBox[1];
-      var bottomLat = OSMBOundingBox[2];
-      var bottomLong = OSMBOundingBox[3];
-
-      //Create a polygon with the OSM bounding box coordinates
-      var geoFilter = `geo.intersects(${correctedQuery.entityType == 'Things' ? 'Locations/location' : 'feature'},geography'POLYGON ((${topLat} ${topLong}, ${topLat} ${bottomLong}, ${bottomLat} ${bottomLong}, ${bottomLat} ${topLong} ,${topLat} ${topLong}))')`;
-
-      //Check for an existing filter
-      if (correctedQuery.filter) {
-        correctedQuery.filter = `(${correctedQuery.filter}) and ${geoFilter}`;
-      } else {
-        correctedQuery.filter = geoFilter;
-      }
-
-      //Higher the fetched things to 1000, if not set
-      if (!correctedQuery.top)
-        correctedQuery.top = 1000;
-
-      //Fetch the data from the server, next links are handled by the STAInterface and merged into one object
-      var rawGeoJson: any = await this.api.getGeoJson(correctedQuery);
-
-
-      //If any data was returned
-      if (rawGeoJson) {
-        var locations;
-
-        //Map the response to one array of geoJson Features
-        if (correctedQuery.entityType == 'Things') {
-          locations = rawGeoJson.value.map((data: any) => {
-            return data.Locations[0].location
-          });
-        } else {
-          //Get the location from the FeaturesOfInterest
-          locations = rawGeoJson.value.map((data: any) => {
-            //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
-            if (data.feature.type == "Point") {
-              return {
-                "type": "Feature",
-                "geometry": data.feature
-              }
+            } else {
+              this.addToCache(zoom, feature, false);
             }
-            return data.feature
-          });
+            resolve(feature);
+          }));
         }
-
-        locations.forEach((location: any) => {
-          this.addToCache(zoom, location);
-        });
       }
     }
 
-    //Deep clone
+    var counts = await Promise.all(promises);
+
+    counts.forEach((feature: any) => {
+      recs.push(feature);
+    });
+
+    var toMarker: any = [];
+
+    //Iterate all polygons
+    recs.forEach((feature: any) => {
+      //Check if markers should be loaded
+      if ((feature.properties.count < this.config.clusterMin) || this.config.cluster == false) {
+        toMarker.push(feature.geometry.coordinates);
+      }
+    });
+
+    //Load markers
+    await this.getMarkers(toMarker, zoom);
+
 
   }
 
@@ -519,17 +456,21 @@ export class MapInterface extends EventEmitter {
     return toReturn;
   }
 
-  addToCache(zoom: number, geoJson: object) {
+  addToCache(zoom: number, geoJson: object, emitEvent: boolean = true) {
     this.cache.push(<CacheObject>{ geoJson, zoom, timestamp: new Date() });
-    this.emitChange(zoom);
+    if (emitEvent) this.emitChange(zoom);
   }
 
   private emitChange(zoom: number) {
     var toReturn: any = this.getCached(zoom);
     //Remove cluster that should not be displayed, but still cached
     toReturn.features = this.getCached(zoom).features.filter((feature: any) => {
-      if (feature.properties.count == undefined)
+      if (feature.properties?.count == undefined)
         return true;
+
+      if (this.config.cluster == false)
+        return feature.properties?.count == undefined;
+
       return feature.properties?.count >= this.config.clusterMin;
     });
     this.emit('change', toReturn);

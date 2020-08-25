@@ -14,7 +14,7 @@ export default {
     input: './src/index.ts',
     plugins: [
         commonjs(),
-        nodeResolve(),
+        nodeResolve({ preferBuiltins: true }),
         typescript(),
         terser(),
         json(),
