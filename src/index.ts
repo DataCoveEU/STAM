@@ -273,12 +273,14 @@ if (typeof L !== "undefined") {
           });
 
           mapInterface.on('change', function (geojson: any) {
-            //Clear layer on change
-            geojsonLayer.clearLayers();
-            //Add the new data
-            geojsonLayer.addData(geojson);
-            //Force cluster layer clearing
-            clearCluster = true;
+            if (geojson.zoom == zoom) {
+              //Clear layer on change
+              geojsonLayer.clearLayers();
+              //Add the new data
+              geojsonLayer.addData(geojson);
+              //Force cluster layer clearing
+              clearCluster = true;
+            }
           }.bind(this));
 
 
@@ -467,15 +469,16 @@ if (typeof ol != "undefined") {
 
     //Fetch the geojson
     mapInterface.on('change', (geoJson: any) => {
+      if (geoJson.zoom == zoom) {
+        //Clear the geojson layer
+        vectorLayer.getSource().clear();
 
-      //Clear the geojson layer
-      vectorLayer.getSource().clear();
+        //Force circle layer clear
+        clearCircles = true;
 
-      //Force circle layer clear
-      clearCircles = true;
-
-      //Create the geojson with  geojson and set the featureProjection to the view's projection
-      vectorLayer.getSource().addFeatures(format.readFeatures(geoJson))
+        //Create the geojson with  geojson and set the featureProjection to the view's projection
+        vectorLayer.getSource().addFeatures(format.readFeatures(geoJson))
+      }
     });
 
     //If popup is not in the html dom, add it

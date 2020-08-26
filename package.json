@@ -1,10 +1,16 @@
 {
   "name": "stam",
-  "version": "1.0.0",
+  "version": "0.0.0-development",
   "description": "OpenLayers and Leaflet Layer for integrating a SensorThings server",
   "main": "index.js",
   "directories": {
     "doc": "docs"
+  },
+  "publishConfig": {
+    "access": "public",
+    "branches": [
+      "master"
+    ]
   },
   "scripts": {
     "build": "./node_modules/rollup/dist/bin/rollup -c",
@@ -20,7 +26,7 @@
     "OpenLayers"
   ],
   "author": "Tobias Pressler",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/DataCoveEU/STAM/issues"
   },
@@ -41,5 +47,10 @@
     "picomodal": "^3.0.0",
     "whatwg-fetch": "^3.2.0"
   },
+  "files": [
+    "dist/stam.min.js",
+    "CHANGELOG.md",
+    "package.json"
+  ],
   "dependencies": {}
 }

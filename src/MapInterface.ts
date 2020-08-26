@@ -266,7 +266,17 @@ export class MapInterface extends EventEmitter {
             //Check if clustering is enabled
             if (this.config.cluster || this.config.cluster == undefined) {
               //Get count for the polygon
-              var data: any = await this.api.getGeoJson(QUERYCOPY);
+              var data: any;
+              try {
+                data = await this.api.getGeoJson(QUERYCOPY);
+              } catch (e) {
+                try {
+                  //Retry on error
+                  data = await this.api.getGeoJson(QUERYCOPY);
+                } catch (e) {
+                  console.error("Failed to fetch data", e);
+                }
+              }
               feature.properties.count = data["@iot.count"];
               this.addToCache(zoom, feature);
             } else {
@@ -380,11 +390,24 @@ export class MapInterface extends EventEmitter {
       for (var cord of toMarker) {
         //Deep clone
         var query = JSON.parse(JSON.stringify(markerQuery));
+
+        if (!query.filter) query.filter = "";
         //Apply filter
-        query.filter = polygonToFilter(cord, query.entityType);
+        query.filter += polygonToFilter(cord, query.entityType);
         //Get data
         promises.push(new Promise(async (resolve, reject) => {
-          var markers: any = await this.api.getGeoJson(query);
+          var markers: any;
+
+          try {
+            markers = await this.api.getGeoJson(query);
+          } catch (e) {
+            try {
+              //Retry on error
+              markers = await this.api.getGeoJson(query);
+            } catch (e) {
+              console.error("Failed to fetch data", e);
+            }
+          }
 
           markers.value.forEach((marker: any) => {
             //Get the geoJson of the marker
@@ -486,7 +509,8 @@ export class MapInterface extends EventEmitter {
     }
     var toReturn: any = {
       "type": "FeatureCollection",
-      "features": []
+      "features": [],
+      zoom
     };
     //Get all geojsons with the given zoom level
     for (var cache of this.cache) {
@@ -542,7 +566,7 @@ function compare_features(f1: any, f2: any): boolean {
   if (f1.type != f2.type) return false;
 
   //If feature is a point, the coordinates can be compared directly
-  if (f1.type == "Point") return polygon_compare(f1.coordinates, f2.coordinates);
+  if (f1.coordinates) return polygon_compare(f1.coordinates, f2.coordinates);
 
   //If it is a polygon or something else, the coordinates need to be gotten from the geometry object
   return polygon_compare(f1.geometry.coordinates, f2.geometry.coordinates);
@@ -555,6 +579,7 @@ function compare_features(f1: any, f2: any): boolean {
  * @returns true if the same
  */
 function polygon_compare(a1: any, a2: any): boolean {
+  //return a1.length === a2.length && a1.every(function (value: any, index: number) { return value === a2[index] })
   return JSON.stringify(a1) === JSON.stringify(a2);
 }
 
