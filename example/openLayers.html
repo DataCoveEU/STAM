@@ -54,14 +54,20 @@
             clusterStyle: {
                 polygon: {
                     hover: {
-                        color: 'red',
-                        //opacity: 1,
+                        color: 'rgba(0,0,0,0)',
+                        opacity: 0,
                         weight: 1
                     },
                     default: {
-                        color: 'orange'
+                        color: 'rgba(0, 0, 0, 0)',
+                        opacity: 0
                     }
                 },
+                circle: {
+                    color: 'blue',
+                    weight: 2,
+                    opacity: 0
+                }
 
             },
             markerMouseOver: function (f) {
