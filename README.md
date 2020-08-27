@@ -53,13 +53,11 @@ STAM (SensorThings API Map) is a JavaScript library for showing the Things/Featu
 
   
 
-Download the [minified file](https://raw.githubusercontent.com/DataCoveEU/STAM/master/dist/stam.min.js), and include it in a script tag. This will expose the variable L.stam or ol.layer.STAM depending on the used map libary.
-
-  
+Include the js file in a script tag. This will expose the variable L.stam or ol.layer.STAM depending on the used map libary.
 
 ```html
 
-<script  src="https://raw.githubusercontent.com/DataCoveEU/STAM/master/dist/stam.min.js"></script>
+<script  src="https://unpkg.com/sta-map@1.0.1/dist/stam.min.js"></script>
 
 ```
 
