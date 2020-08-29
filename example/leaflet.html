@@ -34,11 +34,12 @@
 
         L.stam({
             //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+            //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
             markerStyle: async (feature) => {
                 return "yellow";
             },
-            cluster: true,
+            cluster: false,
             clusterStyle: {
                 polygon: {
                     hover: {
@@ -60,37 +61,10 @@
             },
             // cachingDuration: 10,
             clusterMin: 5,
-            queryObject: [{
-                    zoomLevel: {
-                        from: 7,
-                        to: 15
-                    },
-                    query: {
-                        count: true,
-                        skip: 0,
-                        entityType: 'FeaturesOfInterest',
-                        // filter: "startswith(name,'Abzugsgraben')",
-                        select: null,
-
-                        top: 20000
-                    }
-                },
-                {
-                    zoomLevel: {
-                        from: 1,
-                        to: 6
-                    },
-                    query: {
-                        count: true,
-                        skip: 0,
-                        entityType: 'Things',
-                        filter: null,
-                        select: null,
-                        expand: null,
-                        top: 0
-                    }
-                }
-            ]
+            queryObject: {
+                entityType: 'Things',
+                filter: "Locations/name eq 'DE'",
+            }
         }).addTo(map2);
     </script>
 </body>
