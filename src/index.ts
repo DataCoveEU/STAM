@@ -74,6 +74,7 @@ addCss(`.loader{border:16px solid #f3f3f3;border-top:16px solid #3498db;border-r
 //Leaflet
 if (typeof L !== "undefined") {
 
+  //Will be replaced at build with leaflet realtime js
   "leaflet-realtime";
 
 
