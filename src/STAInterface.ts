@@ -1,4 +1,3 @@
-import 'whatwg-fetch';
 import { QueryObject } from './index';
 import { QueryGenerator } from './QueryGenerator';
 

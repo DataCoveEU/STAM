@@ -418,12 +418,13 @@ export class MapInterface extends EventEmitter {
             else
               geoJson = marker.feature;
 
-            //Fix the geojson if it is not nested in a feature, because openlayer wouldn't save the properties 
-            if (geoJson.type == "Point") {
+            //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties 
+            if (geoJson.type != "Feature") {
               geoJson =
               {
                 "type": "Feature",
-                "geometry": geoJson
+                "geometry": geoJson,
+                "properties": geoJson.properties
               }
             }
 
@@ -472,24 +473,26 @@ export class MapInterface extends EventEmitter {
    * @param marker GeoJson of the marker
    */
   private addGetDataCallback(datastream: any, marker: any) {
-    //Get the id
-    const id = datastream['@iot.id'];
-    //Get the unit
-    const unitOfMeasurement = datastream.unitOfMeasurement;
-    //Add the function, with the id as the key
-    marker.getData[datastream.ObservedProperty.name] = function (configureQuery: Function) {
-      //Add query
-      var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
-      //Use the return value of the callback function
-      datastreamQuery = configureQuery(datastreamQuery);
-      return new Promise(async (resolve, reject) => {
-        //Get the data
-        var data = await this.api.getGeoJson(datastreamQuery);
-        //Add unit to the data object
-        data.unitOfMeasurement = unitOfMeasurement;
-        resolve(data);
-      });
-    }.bind(this);
+    if (datastream) {
+      //Get the id
+      const id = datastream['@iot.id'];
+      //Get the unit
+      const unitOfMeasurement = datastream.unitOfMeasurement;
+      //Add the function, with the id as the key
+      marker.getData[datastream.ObservedProperty.name] = function (configureQuery: Function) {
+        //Add query
+        var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
+        //Use the return value of the callback function
+        datastreamQuery = configureQuery(datastreamQuery);
+        return new Promise(async (resolve, reject) => {
+          //Get the data
+          var data = await this.api.getGeoJson(datastreamQuery);
+          //Add unit to the data object
+          data.unitOfMeasurement = unitOfMeasurement;
+          resolve(data);
+        });
+      }.bind(this);
+    }
   }
 
   /**
@@ -565,6 +568,8 @@ function compare_features(f1: any, f2: any): boolean {
   //Check if the type is the same
   if (f1.type != f2.type) return false;
 
+  if (f1.properties?.['@iot.id'] || f2.properties?.['@iot.id']) return f1.properties?.['@iot.id'] == f2.properties?.['@iot.id'];
+
   //If feature is a point, the coordinates can be compared directly
   if (f1.coordinates) return polygon_compare(f1.coordinates, f2.coordinates);
 
@@ -580,7 +585,27 @@ function compare_features(f1: any, f2: any): boolean {
  */
 function polygon_compare(a1: any, a2: any): boolean {
   //return a1.length === a2.length && a1.every(function (value: any, index: number) { return value === a2[index] })
-  return JSON.stringify(a1) === JSON.stringify(a2);
+  //return JSON.stringify(a1) === JSON.stringify(a2);
+  if (!a2)
+    return false;
+
+  // compare lengths - can save a lot of time 
+  if (a1.length != a2.length)
+    return false;
+
+  for (var i = 0, l = a1.length; i < l; i++) {
+    // Check if we have nested arrays
+    if (a1[i] instanceof Array && a2[i] instanceof Array) {
+      // recurse into the nested arrays
+      if (!polygon_compare(a1[i], (a2[i])))
+        return false;
+    }
+    else if (a1[i] != a2[i]) {
+      // Warning - two different object instances will never be equal: {x:20} != {x:20}
+      return false;
+    }
+  }
+  return true;
 }
 
 /**

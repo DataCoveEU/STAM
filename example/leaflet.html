@@ -18,6 +18,7 @@
             width: 100%;
         }
     </style>
+
     <script src="../dist/stam.min.js"></script>
 </head>
 
@@ -33,13 +34,13 @@
         }).addTo(map2);
 
         L.stam({
-            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
-            markerStyle: async (feature) => {
+            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            markerStyle: function (feature) {
                 return "yellow";
             },
-            cluster: false,
+            cluster: true,
             clusterStyle: {
                 polygon: {
                     hover: {
@@ -53,17 +54,11 @@
                 },
 
             },
-            markerMouseOver: function (f) {
-                console.log("MARKER", f)
-            },
-            clusterMouseOver: function (f) {
-                console.log("CLUSTER", f)
-            },
             // cachingDuration: 10,
             clusterMin: 5,
             queryObject: {
                 entityType: 'Things',
-                filter: "Locations/name eq 'DE'",
+                // filter: "Locations/name eq 'DE'",
             }
         }).addTo(map2);
     </script>
