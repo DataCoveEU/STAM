@@ -400,23 +400,23 @@ if (typeof ol != "undefined") {
 
           return style;
         } else {
+
+          //Get extends of cluster
+          var cords = feature.getGeometry().getExtent();
+
+          //Calculate middle
+          var long = (cords[0] + cords[2]) / 2;
+          var lat = (cords[1] + cords[3]) / 2;
+
+          //Get style from config
+          var style: any = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(feature)) : config.clusterStyle;
+
+          //Get the individual styles
+          var circleStyle = style?.circle as Path;
+          var polygonStyle = style?.polygon.default as Path;
+
+
           if (feature.get('count') != undefined) {
-            //Get extends of cluster
-            var cords = feature.getGeometry().getExtent();
-
-            //Calculate middle
-            var long = (cords[0] + cords[2]) / 2;
-            var lat = (cords[1] + cords[3]) / 2;
-
-            //Get style from config
-            var style: any = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(feature)) : config.clusterStyle;
-
-            //Get the individual styles
-            var circleStyle = style?.circle as Path;
-            var polygonStyle = style?.polygon.default as Path;
-
-
-
             //Add circle with text
             var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
 
@@ -448,21 +448,21 @@ if (typeof ol != "undefined") {
 
             //Add circle to circle layer
             circleLayer.getSource().addFeature(circle);
-
-            //Convert path to openLayers style
-            if (polygonStyle) {
-              polygonStyle = pathToOl(polygonStyle)
-            }
-
-            //Use config style if preset
-            return polygonStyle ?? new ol.style.Style({
-              stroke: new ol.style.Stroke({
-                color: 'rgba(0, 0, 0, 0)',
-                width: 3,
-              }),
-              fill: new ol.style.Fill({ color: 'rgba(0, 0, 0, 0)' })
-            });
           }
+
+          //Convert path to openLayers style
+          if (polygonStyle) {
+            polygonStyle = pathToOl(polygonStyle)
+          }
+
+          //Use config style if preset
+          return polygonStyle ?? new ol.style.Style({
+            stroke: new ol.style.Stroke({
+              color: '#3399CC',
+              width: 1.25
+            }),
+            fill: new ol.style.Fill({ color: 'rgba(255,255,255,0.4)' })
+          });
         }
       }
     });
@@ -488,7 +488,7 @@ if (typeof ol != "undefined") {
         //Force circle layer clear
         clearCircles = true;
 
-        //Create the geojson with  geojson and set the featureProjection to the view's projection
+        //Create the geojson and add it to the source
         vectorLayer.getSource().addFeatures(format.readFeatures(geoJson))
       }
     });
@@ -611,7 +611,6 @@ if (typeof ol != "undefined") {
         //Marker was clicked
         if (feature.get('@iot.id') != undefined) {
           var geometry = feature.getGeometry();
-          var coord = geometry.getCoordinates();
 
           var content;
           //Check type
@@ -625,7 +624,14 @@ if (typeof ol != "undefined") {
           } else {
             content_element.innerHTML = content;
           }
-          overlay.setPosition(coord);
+
+          if (geometry.getType() == "Point") {
+            overlay.setPosition(geometry.getCoordinates());
+          } else {
+            var cords = evt.pixel;
+            cords[1] = cords[1] + 36;
+            overlay.setPosition(olmap.getCoordinateFromPixel(cords));
+          }
         } else {
           //Cluster was clicked
           if (feature.get('count') != undefined) {
@@ -811,8 +817,6 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
 
   //Append list to popup
   content_element.appendChild(list);
-
-  content_element.style.width = null;
 }
 
 /**
