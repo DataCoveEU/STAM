@@ -57,7 +57,7 @@ Include the js file in a script tag. This will expose the variable L.stam or ol.
 
 ```html
 
-<script  src="https://unpkg.com/sta-map@1.0.1/dist/stam.min.js"></script>
+<script  src="https://unpkg.com/sta-map@1.1.0/dist/stam.min.js"></script>
 
 ```
 
@@ -137,7 +137,7 @@ The config is used to specify the style and behaviour of the displayed content
 	},
 	//Called, with the feature as an argument, when a marker is hovered.
 	markerMouseOver?: Function,
-	//Called, with the feature as an argument, when a marker is clicked.
+	//Called, with the feature as an argument, when a marker is clicked. If the function returns a string, it is added into the popup.
 	markerClick?: Function,
 	//Called, with the feature as an argument, when a cluster is hovered.
 	clusterMouseOver?: Function,
