@@ -34,32 +34,47 @@
         }).addTo(map2);
 
         L.stam({
-            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
             markerStyle: function (feature) {
                 return "yellow";
             },
-            cluster: true,
-            clusterStyle: {
-                polygon: {
-                    hover: {
-                        color: 'red',
-                        //opacity: 1,
-                        // weight: 1
-                    },
-                    default: {
-                        color: 'orange'
-                    }
-                },
-
-            },
+            cluster: false,
             // cachingDuration: 10,
             clusterMin: 5,
-            queryObject: {
-                entityType: 'Things',
-                // filter: "Locations/name eq 'DE'",
-            }
+            queryObject: [{
+                    zoomLevel: {
+                        from: 0,
+                        to: 7
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) eq 2",
+                    }
+                },
+                {
+                    zoomLevel: {
+                        from: 8,
+                        to: 9
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) eq 4",
+                    }
+                },
+                {
+                    zoomLevel: {
+                        from: 10,
+                        to: 11
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) gt 4",
+                    }
+                }
+            ]
         }).addTo(map2);
     </script>
 </body>

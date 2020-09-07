@@ -38,6 +38,51 @@
             }),
         });
         map.addLayer(new ol.layer.STAM({
+            map,
+            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
+            markerStyle: function (feature) {
+                return "yellow";
+            },
+            cluster: false,
+            // cachingDuration: 10,
+            clusterMin: 5,
+            queryObject: [{
+                    zoomLevel: {
+                        from: 0,
+                        to: 7
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) eq 2",
+                    }
+                },
+                {
+                    zoomLevel: {
+                        from: 8,
+                        to: 9
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) eq 4",
+                    }
+                },
+                {
+                    zoomLevel: {
+                        from: 10,
+                        to: 11
+                    },
+                    query: {
+                        entityType: 'Things',
+                        filter: "length(Locations/name) gt 4",
+                    }
+                }
+            ]
+        }));
+        /*
+        {
             baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
             //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
@@ -48,35 +93,10 @@
             markerClick: function (feature) {
                 //return `<span>${JSON.stringify(feature)}</span>`
             },
-            /*clusterClick: function (f) {
+            clusterClick: function (f) {
                 console.log("CLUSTER", f)
-            },*/
+            },
             cluster: true,
-            clusterStyle: {
-                polygon: {
-                    hover: {
-                        color: 'rgba(0,0,0,0)',
-                        opacity: 0,
-                        weight: 1
-                    },
-                    default: {
-                        color: 'rgba(0, 0, 0, 0)',
-                        opacity: 0
-                    }
-                },
-                circle: {
-                    color: 'blue',
-                    weight: 2,
-                    opacity: 0
-                }
-
-            },
-            markerMouseOver: function (f) {
-                console.log("MARKER", f)
-            },
-            clusterMouseOver: function (f) {
-                console.log("CLUSTER", f)
-            },
             // cachingDuration: 10,
             clusterMin: 5,
             queryObject: [{
@@ -110,7 +130,7 @@
                     }
                 }
             ]
-        }));
+        */
     </script>
 </body>
 
