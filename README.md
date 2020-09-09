@@ -25,7 +25,7 @@ STAM (SensorThings API Map) is a JavaScript library for showing the Things/Featu
 
 * Leaflet and OpenLayers are supported
 
-* Things and Features of interest are supported
+* Things and Features of interest are supported as spatial features
 
   
 
