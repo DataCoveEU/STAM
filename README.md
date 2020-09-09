@@ -7,51 +7,27 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-  
-
 ## 🧐 About <a name = "about"></a>
-
-  
 
 STAM (SensorThings API Map) is a JavaScript library for showing the Things/Features of interest of a SensorThings server on a Leaflet/OpenLayers map.
 
-  
-
 ## Features
 
-  
-
 * Easy implementation of an exising SensorThings server into a map
-
 * Leaflet and OpenLayers are supported
-
 * Things and Features of interest are supported as spatial features
-
-  
 
 ## 🏁 Getting Started <a name = "getting_started"></a>
 
-  
-
 ### Prerequisites
 
-  
-
 * A website
-
 * A OpenLayers or Leaflet map
-
 * A SensorThings server url
 
-  
+### Installation
 
-### Installing
-
-  
-
-#### In browser
-
-  
+#### Integration with HTML
 
 Include the js file in a script tag. This will expose the variable L.stam or ol.layer.STAM depending on the used map libary.
 
@@ -61,14 +37,13 @@ Include the js file in a script tag. This will expose the variable L.stam or ol.
 
 ```
 
-### Features
+### Spatial Features
 
 #### Point
 
 A GeoJson with an extra property named getData. 
 
 getData is a object, the keys are the observedProperties and the values are async functions.
-
 
 These functions take a callback as a argument. The callback gets a predefined QueryObject as an argument, can change it and has to return it.
 
@@ -150,35 +125,21 @@ The config is used to specify the style and behaviour of the displayed content
 
 ### Usage
 
-  
-
 #### Leaflet
-
-  
 
 ```js
 L.stam(config)
 ```
 
-  
-
 #### OpenLayers
-
-  
 
 ```js
 new  ol.layer.STAM(config)
 ```
 
-  
-
 ## Contributors ✨
 
-  
-
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-  
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 
