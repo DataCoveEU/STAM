@@ -686,11 +686,11 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
   var list = document.createElement('ul');
 
   //Iterate all ObservedProperties
-  Object.keys(feature.properties.getData).forEach(function (key: string) {
+  feature.properties.getData.forEach(function (obj: any) {
 
     //Create new list element
     var li = document.createElement('li');
-    li.innerText = key;
+    li.innerText = obj.observedProperty;
     //Set cursor style on hover
     li.setAttribute('style', "cursor: pointer");
     if (typeof Plotly != 'undefined') {
@@ -718,7 +718,7 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
 
           var reverse: boolean = false;
           //Get data
-          var result = await feature.properties.getData[key](function (query: QueryObject) {
+          var result = await obj.getData(function (query: QueryObject) {
             //Get the dataArray
             query.resultFormat = 'dataArray';
             query.orderby = 'phenomenonTime asc';
