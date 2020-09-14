@@ -19,7 +19,7 @@
         }
     </style>
 
-    <script src="https://unpkg.com/sta-map"></script>
+    <script src="../dist/stam.min.js"></script>
 </head>
 
 <body>
@@ -34,47 +34,19 @@
         }).addTo(map2);
 
         L.stam({
-            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
             //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
             markerStyle: function (feature) {
                 return "yellow";
             },
-            cluster: false,
+            cluster: true,
             // cachingDuration: 10,
             clusterMin: 5,
-            queryObject: [{
-                    zoomLevel: {
-                        from: 0,
-                        to: 7
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) eq 2",
-                    }
-                },
-                {
-                    zoomLevel: {
-                        from: 8,
-                        to: 9
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) eq 4",
-                    }
-                },
-                {
-                    zoomLevel: {
-                        from: 10,
-                        to: 11
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) gt 4",
-                    }
-                }
-            ]
+            queryObject: {
+                entityType: 'Things',
+            }
         }).addTo(map2);
     </script>
 </body>

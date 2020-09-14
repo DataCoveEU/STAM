@@ -436,7 +436,7 @@ export class MapInterface extends EventEmitter {
             geoJson.properties = marker;
             //add getData object if not present
             if (!marker.getData)
-              marker.getData = {};
+              marker.getData = [];
 
             //Check for the entityType
             if (markerQuery.entityType == 'Things') {
@@ -479,19 +479,21 @@ export class MapInterface extends EventEmitter {
       //Get the unit
       const unitOfMeasurement = datastream.unitOfMeasurement;
       //Add the function, with the id as the key
-      marker.getData[datastream.ObservedProperty.name] = function (configureQuery: Function) {
-        //Add query
-        var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
-        //Use the return value of the callback function
-        datastreamQuery = configureQuery(datastreamQuery);
-        return new Promise(async (resolve, reject) => {
-          //Get the data
-          var data = await this.api.getGeoJson(datastreamQuery);
-          //Add unit to the data object
-          data.unitOfMeasurement = unitOfMeasurement;
-          resolve(data);
-        });
-      }.bind(this);
+      marker.getData.push({
+        observedProperty: datastream.ObservedProperty.name, getData: function (configureQuery: Function) {
+          //Add query
+          var datastreamQuery = <QueryObject>{ entityType: "Datastreams", id, pathSuffix: 'Observations' };
+          //Use the return value of the callback function
+          datastreamQuery = configureQuery(datastreamQuery);
+          return new Promise(async (resolve, reject) => {
+            //Get the data
+            var data = await this.api.getGeoJson(datastreamQuery);
+            //Add unit to the data object
+            data.unitOfMeasurement = unitOfMeasurement;
+            resolve(data);
+          });
+        }.bind(this)
+      });
     }
   }
 
