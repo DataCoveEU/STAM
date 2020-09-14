@@ -311,7 +311,6 @@ if (typeof L !== "undefined") {
               countLayer.clearLayers();
             }
             //Set flag to true so that the cluster labels are removed
-            clearCluster = true;
             var bounds = map.getBounds();
 
             //add a new layer and remove all old layers
