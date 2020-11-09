@@ -61,6 +61,7 @@ export interface Config {
     circle: Path,
     polygon: Style
   },
+  polygonStyle?: Function,
   markerMouseOver?: Function,
   markerClick?: Function,
   clusterMouseOver?: Function,
@@ -276,7 +277,7 @@ if (typeof L !== "undefined") {
                   return `${flatten[0]}/${flatten[1]}`;
                 }
               },
-              //style: config.clusterStyle ?? undefined,
+              style: config.polygonStyle ?? undefined,
               interval: 3 * 100
             });
 
