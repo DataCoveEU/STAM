@@ -376,7 +376,9 @@ export class MapInterface extends EventEmitter {
           markerQuery.select.push('feature');
         }
 
-        markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
+        if (!markerQuery.expand) {
+          markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
+        }
       }
 
 
