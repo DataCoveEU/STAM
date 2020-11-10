@@ -95,6 +95,8 @@ The config is used to specify the style and behaviour of the displayed content
   //Specifies the color of the marker. The functions gets the geojson as a parameter and has to return the color. The function can be async.
   //Valid colors: green, black, blue, grey, violet, orange, red, yellow, gold
 	markerStyle?: Function | string,
+	//Used to style non-Point Locations or Features. Returns the style of the feature: https://leafletjs.com/reference.html#geojson
+	polygonStyle?: Function,
 	//Used to style the cluster. Can be a function that returns the second specified interface
 	clusterStyle?: Function | {
 	//Used to specify the style of the circle. 
