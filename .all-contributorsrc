@@ -19,6 +19,15 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "hylke",
+      "name": "hylke",
+      "avatar_url": "https://avatars0.githubusercontent.com/u/657963?v=4",
+      "profile": "https://github.com/hylke",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7
