@@ -61,7 +61,7 @@ export interface Config {
     circle: Path,
     polygon: Style
   },
-  polygonStyle?: Function,
+  polygonStyle?: Function | string,
   markerMouseOver?: Function,
   markerClick?: Function,
   clusterMouseOver?: Function,
@@ -246,6 +246,25 @@ if (typeof L !== "undefined") {
               var marker = L.marker(latlng, { icon: typeof config.markerStyle == 'function' ? textToMarker(config.markerStyle(feature)) : typeof config.markerStyle == 'string' ? textToMarker(config.markerStyle) : new L.Icon.Default() });
               return marker;
             }
+          };
+
+          // The polygonStyle should only be applied to Locations for Features from the STA service
+          // not to generated squares
+          var styleFunction:Function = undefined;
+          if (typeof config.polygonStyle == 'function') {
+            styleFunction = function(feature: any) {
+              if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
+                return undefined;
+              }
+              return config.polygonStyle(feature);
+            };
+          } else if (config.polygonStyle) {
+            styleFunction = function(feature: any) {
+              if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
+                return undefined;
+              }
+              return config.polygonStyle;
+            };
           }
 
           //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating 
@@ -277,8 +296,8 @@ if (typeof L !== "undefined") {
                   return `${flatten[0]}/${flatten[1]}`;
                 }
               },
-              style: config.polygonStyle ?? undefined,
-              interval: 3 * 100
+              style: styleFunction,
+              interval: 500
             });
 
             //Add count and geojson layer

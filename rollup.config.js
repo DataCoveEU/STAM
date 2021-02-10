@@ -11,18 +11,18 @@ import { terser } from "rollup-plugin-terser";
 
 
 const extensions = [
-    '.js', '.jsx', '.ts', '.tsx',
+    '.js', '.jsx', '.ts', '.tsx'
 ];
 
 export default {
     input: './src/index.ts',
     plugins: [
         commonjs(),
-        nodeResolve({ preferBuiltins: true, extensions, }),
+        nodeResolve({ preferBuiltins: true, extensions }),
         json(),
         nodePolyfills(),
         cleanup({
-            'comments': 'none',
+            'comments': 'none'
         }),
         replace({
             'leaflet-realtime': () => `";${fs.readFileSync(path.join(__dirname, "node_modules/leaflet-realtime/dist/leaflet-realtime.js")).toString()}"`,
@@ -32,9 +32,10 @@ export default {
             babelHelpers: 'inline',
             extensions
         }),
-        terser(),
+        terser()
     ],
     output: {
+        sourcemap: true,
         file: './dist/stam.min.js',
         format: 'umd',
         name: 'bundle'
