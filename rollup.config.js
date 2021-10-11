@@ -17,16 +17,17 @@ const extensions = [
 export default {
     input: './src/index.ts',
     plugins: [
+        nodePolyfills(),
         commonjs(),
         nodeResolve({ preferBuiltins: true, extensions }),
         json(),
-        nodePolyfills(),
         cleanup({
             'comments': 'none'
         }),
         replace({
             'leaflet-realtime': () => `";${fs.readFileSync(path.join(__dirname, "node_modules/leaflet-realtime/dist/leaflet-realtime.js")).toString()}"`,
-            delimiters: ['', '']
+            delimiters: ['', ''],
+            preventAssignment: true
         }),
         babel({
             babelHelpers: 'inline',

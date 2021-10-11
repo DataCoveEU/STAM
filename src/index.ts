@@ -114,7 +114,13 @@ if (typeof L !== "undefined") {
         }
 
         //Get the style from the config
-        var configStyle = typeof config.clusterStyle == 'function' ? config.clusterStyle(layer.feature).polygon.hover : config.clusterStyle?.polygon.hover;
+        var configStyle = typeof config.clusterStyle == 'function' ? (
+          (feature:any) => {
+            if(!feature._clusterStyleCache){
+              feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+            }
+            return feature._clusterStyleCache.style?.polygon.hover;
+          })(layer.feature) : config.clusterStyle?.polygon.hover;
 
         //Add a transparent background, if no background was set
         addTransparentBackground(configStyle);
@@ -127,7 +133,13 @@ if (typeof L !== "undefined") {
       //Remove the style after the mouse hovered over a polygon
       var unsetHighlight = function (layer: any) {
         //Get the style from the config
-        var configStyle = typeof config.clusterStyle == 'function' ? config.clusterStyle(layer.feature).polygon.default : config.clusterStyle?.polygon.default;
+        var configStyle = typeof config.clusterStyle == 'function' ? (
+          (feature:any) => {
+            if(!feature._clusterStyleCache){
+              feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+            }
+            return feature._clusterStyleCache.style?.polygon.default;
+          })(layer.feature) : config.clusterStyle?.polygon.default;
 
         //Add a transparent background, if no background was set
         addTransparentBackground(configStyle);
@@ -174,7 +186,13 @@ if (typeof L !== "undefined") {
               });
 
               //Get the style from the config
-              var configStyle = typeof config.clusterStyle == 'function' ? config.clusterStyle(layer.feature).polygon.default : config.clusterStyle?.polygon.default;
+              var configStyle = typeof config.clusterStyle == 'function' ? (
+                (feature:any) => {
+                  if(!feature._clusterStyleCache){
+                    feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+                  }
+                  return feature._clusterStyleCache.style?.polygon.default;
+                })(layer.feature) : config.clusterStyle?.polygon.default;
 
               //Add a transparent background, if no background was set
               addTransparentBackground(configStyle);
@@ -252,11 +270,17 @@ if (typeof L !== "undefined") {
           // not to generated squares
           var styleFunction:Function = undefined;
           if (typeof config.polygonStyle == 'function') {
-            styleFunction = function(feature: any) {
+            styleFunction = (feature: any) => {
               if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
                 return undefined;
               }
-              return config.polygonStyle(feature);
+
+              if(!feature._polygonStyleCache){
+                //Add to object to prevent recall, if style function returns undefined
+                feature._polygonStyleCache = {style: config.polygonStyle(feature)};
+              }
+
+              return feature._polygonStyleCache.style;
             };
           } else if (config.polygonStyle) {
             styleFunction = function(feature: any) {
@@ -436,7 +460,14 @@ if (typeof ol != "undefined") {
           var lat = (cords[1] + cords[3]) / 2;
 
           //Get style from config
-          var style: any = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(feature)) : config.clusterStyle;
+          var style: any = typeof config.clusterStyle == 'function' ? (
+                            (feature:any) => {
+                              if(!feature._clusterStyleCache){
+                                feature._clusterStyleCache = {style: config.clusterStyle(olToGeoJSON(feature))};
+                              }
+                              return feature._clusterStyleCache.style;
+                            })(feature)
+                            : config.clusterStyle;
 
           //Get the individual styles
           var circleStyle = style?.circle as Path;
@@ -588,7 +619,14 @@ if (typeof ol != "undefined") {
 
           //Set config style if present
           if (config.clusterStyle) {
-            var clusterStyle = typeof config.clusterStyle == 'function' ? config.clusterStyle(olToGeoJSON(f)).polygon.hover : config.clusterStyle.polygon.hover
+            var clusterStyle = typeof config.clusterStyle == 'function' ? 
+                              ((feature:any) => {
+                                if(!feature._clusterStyleCache){
+                                  feature._clusterStyleCache = {style: config.clusterStyle(olToGeoJSON(feature))};
+                                }
+                                return feature._clusterStyleCache.style.polygon.hover;
+                              })(f)
+                              : config.clusterStyle.polygon.hover
             style = pathToOl(clusterStyle);
           } else {
             var style = defaultHighlightStyle;
@@ -885,11 +923,11 @@ function olToGeoJSON(feature: any): any {
 function pathToOl(path: Path) {
   return new ol.style.Style({
     stroke: new ol.style.Stroke({
-      color: colorWithAlpha(path.color ?? 'red', path.opacity),
-      width: path.weight ?? 1
+      color: colorWithAlpha(path?.color ?? 'red', path?.opacity),
+      width: path?.weight ?? 1
     }),
     fill: new ol.style.Fill({
-      color: path.fillColor ? colorWithAlpha(path.fillColor, path.fillOpacity) : 'rgba(0, 0, 0, 0)'
+      color: path?.fillColor ? colorWithAlpha(path?.fillColor, path?.fillOpacity) : 'rgba(0, 0, 0, 0)'
     })
   });
 }
