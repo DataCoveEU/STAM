@@ -4,15 +4,15 @@
             "@babel/preset-env",
             {
                 "targets": {
-                    "browsers": "> 0.5%, ie >= 11"
+                    "browsers": "> 0.5%"
                 },
                 "modules": false,
                 "spec": true,
                 "useBuiltIns": "usage",
                 "forceAllTransforms": true,
                 "corejs": {
-                    "version": 3,
-                    "proposals": false
+                    "version": "3", 
+                    "proposals": true
                 }
             }
         ],
