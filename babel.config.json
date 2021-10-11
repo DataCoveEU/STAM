@@ -11,7 +11,7 @@
                 "useBuiltIns": "usage",
                 "forceAllTransforms": true,
                 "corejs": {
-                    "version": "3", 
+                    "version": "2", 
                     "proposals": true
                 }
             }
