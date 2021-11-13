@@ -341,7 +341,7 @@ export class MapInterface extends EventEmitter {
           markerQuery.expand.push(<QueryObject>{
             entityType: "Datastreams",
             select: ["id", "name", "unitOfMeasurement"],
-            expand: [<QueryObject>{ entityType: 'observedProperty' }]
+            expand: [<QueryObject>{ entityType: 'ObservedProperty' }]
           });
         }
         else {
@@ -377,7 +377,7 @@ export class MapInterface extends EventEmitter {
         }
 
         if (!markerQuery.expand) {
-          markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'observedProperty' }] }] }]
+          markerQuery.expand = [<QueryObject>{ entityType: 'Observations', top: 1, expand: [<QueryObject>{ entityType: 'Datastream', select: ['unitOfMeasurement', 'id'], expand: [<QueryObject>{ entityType: 'ObservedProperty' }] }] }]
         }
       }
 
