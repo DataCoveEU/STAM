@@ -7,6 +7,8 @@ declare var L: any;
 declare var ol: any;
 declare var Plotly: any;
 
+var client:any;
+
 export interface QueryObject {
   [key: string]: Array<string> | string | Array<QueryObject> | number | boolean,
   entityType: string,
@@ -52,6 +54,7 @@ export interface Config {
     endDate?: Date
   },
   cachingDuration: number,
+  mqtt: boolean,
   cluster: boolean,
   clusterMin: number,
   queryObject: QueryObject | Array<RangeQuery>,

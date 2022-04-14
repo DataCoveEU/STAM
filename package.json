@@ -64,5 +64,8 @@
     "dist/stam.min.js",
     "CHANGELOG.md",
     "package.json"
-  ]
+  ],
+  "dependencies": {
+    "mqtt": "^4.3.7"
+  }
 }
