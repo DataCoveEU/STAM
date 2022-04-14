@@ -7,16 +7,66 @@ import {
 } from './index';
 import { STAInterface } from './STAInterface';
 
+declare var mqtt: any;
 export class MapInterface extends EventEmitter {
   config: Config;
   api: STAInterface;
+  client: any;
+  lastZoom: number;
+
   //Stores the cached geojson
   cache: Array<CacheObject>;
   constructor(config: Config) {
     super();
     this.cache = [];
+    this.lastZoom = 0;
     this.config = config;
     this.api = new STAInterface(config.baseUrl);
+
+    //MQTT
+    if (typeof mqtt !== "undefined") {
+      var url = new URL(config.baseUrl);
+      //Connect to server
+      this.client = mqtt.connect(`wss://${url.hostname}/mqtt`)
+
+      //Receive updates from server
+      this.client.on('message', function (topic: any, message: any) {
+        // parse message
+        var marker = JSON.parse(message.toString());
+        var geoJson: any;
+        //Check for the entityType
+        geoJson = marker.feature;
+
+        //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties 
+        if (geoJson.type != "Feature") {
+          geoJson =
+          {
+            "type": "Feature",
+            "geometry": geoJson,
+            "properties": geoJson.properties
+          }
+        }
+
+        delete marker.Locations;
+
+        //Add the properties
+        geoJson.properties = marker;
+
+        //Update items in cache
+        this.cache = this.cache.map((e: CacheObject) => {
+          if ((e.geoJson as any).properties['@iot.id'] == marker['@iot.id']) {
+            e.geoJson = geoJson;
+            e.timestamp = new Date();
+          }
+
+          return e;
+        });
+
+        //Show on map
+        this.emitChange(this.lastZoom);
+      }.bind(this));
+    }
+
   }
 
 
@@ -129,6 +179,7 @@ export class MapInterface extends EventEmitter {
    * @param zoom Zoom level
    */
   getQuery(zoom: number) {
+    this.lastZoom = zoom;
     //Check if it is a QueryObject
     if ("entityType" in this.config.queryObject) {
       return (this.config.queryObject as QueryObject)
@@ -177,6 +228,8 @@ export class MapInterface extends EventEmitter {
 
     //Removing the reference to config.queryObject 
     var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
+
+    this.client.subscribe([`${this.config.baseUrl.split('/').pop()}/${correctedQuery.entityType}`], function (err: any, granted: any) {console.log(granted)});
 
     //Checking if the queried entityType is things
     if (correctedQuery.entityType == 'Things') {
@@ -448,7 +501,7 @@ export class MapInterface extends EventEmitter {
               }
             } else {
               //Get the datastream of the FeatureOfInterest
-              const DATASTREAM = marker.Observations[0].Datastream;
+              const DATASTREAM = marker.Observations[0]?.Datastream;
               this.addGetDataCallback(DATASTREAM, marker);
             }
 

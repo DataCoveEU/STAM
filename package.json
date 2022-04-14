@@ -66,6 +66,6 @@
     "package.json"
   ],
   "dependencies": {
-    "mqtt": "^4.2.8"
+    "mqtt": "^4.3.7"
   }
 }

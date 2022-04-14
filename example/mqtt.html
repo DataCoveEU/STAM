@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
@@ -18,8 +19,11 @@
             width: 100%;
         }
     </style>
-
-    <script src="https://unpkg.com/sta-map"></script>
+    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+    <script src="/dist/stam.min.js"></script>
+    <script>
+       
+    </script>
 </head>
 
 <body>
@@ -38,15 +42,15 @@
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
             //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
             //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
-            baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
+            baseUrl: "https://ogc-demo.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
             markerStyle: function (feature) {
                 return "yellow";
             },
-            cluster: true,
+            cluster: false,
             // cachingDuration: 10,
             clusterMin: 5,
             queryObject: {
-                    entityType: 'Things'
+                    entityType: 'FeaturesOfInterest'
                 }
         }).addTo(map2);
     </script>

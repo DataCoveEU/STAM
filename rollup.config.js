@@ -21,9 +21,9 @@ export default {
         commonjs(),
         nodeResolve({ preferBuiltins: true, extensions }),
         json(),
-        cleanup({
+       /*  cleanup({
             'comments': 'none'
-        }),
+        }), */
         replace({
             'leaflet-realtime': () => `";${fs.readFileSync(path.join(__dirname, "node_modules/leaflet-realtime/dist/leaflet-realtime.js")).toString()}"`,
             delimiters: ['', ''],
@@ -33,7 +33,7 @@ export default {
             babelHelpers: 'inline',
             extensions
         }),
-        terser()
+        /* terser() */
     ],
     output: {
         sourcemap: true,
