@@ -11,11 +11,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v1
         with:
-          node-version: 14
+          node-version: 17
       - name: Install dependencies
         run: npm ci
-      - name: Run tests
-        run: npm test
       - name: Run build
         run: npm run build
       - name: Release

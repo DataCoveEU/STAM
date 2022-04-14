@@ -21,7 +21,7 @@ export class MapInterface extends EventEmitter {
     this.cache = [];
     this.lastZoom = 0;
     this.config = config;
-    this.api = new STAInterface(config.baseUrl);
+    this.api = new STAInterface(config);
 
     //MQTT
     if (typeof mqtt !== "undefined" && config.mqtt) {
