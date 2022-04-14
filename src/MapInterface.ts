@@ -448,7 +448,7 @@ export class MapInterface extends EventEmitter {
               }
             } else {
               //Get the datastream of the FeatureOfInterest
-              const DATASTREAM = marker.Observations[0].Datastream;
+              const DATASTREAM = marker.Observations[0]?.Datastream;
               this.addGetDataCallback(DATASTREAM, marker);
             }
 

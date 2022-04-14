@@ -825,13 +825,13 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
           //Get datastream
           var Datastream = result.value;
 
-          //Reverse array if necessary
-          if (reverse) {
-            Datastream.dataArray = Datastream.dataArray.reverse();
-          }
-
           //Check if data was returned
           if (Datastream.dataArray) {
+            //Reverse array if necessary
+            if (reverse) {
+              Datastream.dataArray = Datastream.dataArray.reverse();
+            }
+
             Datastream.dataArray.forEach((Observation: any) => {
               //Split data if a timespan was entered, and add both to the x array
               if (Observation[1].indexOf('/') != -1) {
