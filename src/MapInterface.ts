@@ -16,7 +16,7 @@ export class MapInterface extends EventEmitter {
     super();
     this.cache = [];
     this.config = config;
-    this.api = new STAInterface(config.baseUrl);
+    this.api = new STAInterface(config);
   }
 
 

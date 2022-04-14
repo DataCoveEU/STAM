@@ -66,7 +66,8 @@ export interface Config {
   markerClick?: Function,
   clusterMouseOver?: Function,
   clusterClick?: Function,
-  map?: any
+  map?: any,
+  fetchOptions?: RequestInit
 }
 
 //Add the style of the loader

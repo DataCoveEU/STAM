@@ -1,13 +1,13 @@
-import { QueryObject } from './index';
+import { Config, QueryObject } from './index';
 import { QueryGenerator } from './QueryGenerator';
 
 /**
  * Used for querying a sensorthings server, that may return a next link
  */
 export class STAInterface {
-  baseUrl: String;
-  constructor(baseUrl: String) {
-    this.baseUrl = baseUrl;
+  config: Config;
+  constructor(config: Config) {
+    this.config = config;
   }
 
 
@@ -25,9 +25,9 @@ export class STAInterface {
     return new Promise(async (resolve, reject) => {
       try {
         //Generate url
-        var url = `${this.baseUrl}/${(new QueryGenerator(query).toString())}`;
+        var url = `${this.config.baseUrl}/${(new QueryGenerator(query).toString())}`;
         //get data
-        var data = await (await fetch(url as any)).json()
+        var data = await (await fetch(url as any, this.config.fetchOptions)).json()
         if (data.value[0] && data.value[0].dataArray) {
           data.value = data.value[0];
         }

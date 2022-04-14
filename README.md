@@ -31,7 +31,7 @@ Include the js file in a script tag. This will expose the variable L.stam or ol.
 
 ```html
 
-<script  src="https://unpkg.com/sta-map@1.1.0/dist/stam.min.js"></script>
+<script  src="https://unpkg.com/sta-map@latest/dist/stam.min.js"></script>
 
 ```
 
@@ -119,7 +119,8 @@ The config is used to specify the style and behaviour of the displayed content
 	//Called, with the feature as an argument, when a cluster is clicked.
 	clusterClick?: Function,
 	//The instance of the openLayers map. Only necessary for openLayers. 
-	map?: any
+	map?: any,
+	fetchOptions?: RequestInit //fetch request options. Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 }
 ```  
 
