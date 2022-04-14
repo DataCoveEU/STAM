@@ -54,6 +54,7 @@ export interface Config {
     endDate?: Date
   },
   cachingDuration: number,
+  mqtt: boolean,
   cluster: boolean,
   clusterMin: number,
   queryObject: QueryObject | Array<RangeQuery>,

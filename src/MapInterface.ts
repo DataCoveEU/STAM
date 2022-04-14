@@ -24,7 +24,7 @@ export class MapInterface extends EventEmitter {
     this.api = new STAInterface(config.baseUrl);
 
     //MQTT
-    if (typeof mqtt !== "undefined") {
+    if (typeof mqtt !== "undefined" && config.mqtt) {
       var url = new URL(config.baseUrl);
       //Connect to server
       this.client = mqtt.connect(`wss://${url.hostname}/mqtt`)

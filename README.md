@@ -72,6 +72,8 @@ The config is used to specify the style and behaviour of the displayed content
 	},
 	//Time in seconds to cache the data. Data is cached forever if null
 	cachingDuration: number,
+	//Enable mqtt support
+	mqtt: boolean,
 	//Defaults to true, if false no clustering is going to be applied
 	cluster: boolean,
 	//The minimal count of things in a cluster, so that a cluster is displayed
@@ -135,6 +137,15 @@ L.stam(config)
 
 ```js
 new  ol.layer.STAM(config)
+```
+
+### MQTT
+
+MQTT support has been implemented and can be activated by setting the mqtt flag in the config.
+To use MQTT functionalities, the corresponding client library has to be included.
+
+```js
+<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 ```
 
 ## Contributors ✨
