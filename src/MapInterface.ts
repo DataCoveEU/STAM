@@ -229,7 +229,9 @@ export class MapInterface extends EventEmitter {
     //Removing the reference to config.queryObject 
     var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
 
-    this.client.subscribe([`${this.config.baseUrl.split('/').pop()}/${correctedQuery.entityType}`], function (err: any, granted: any) {console.log(granted)});
+    if(this.client){
+      this.client.subscribe([`${this.config.baseUrl.split('/').pop()}/${correctedQuery.entityType}`], function (err: any, granted: any) {console.log(granted)});
+    }
 
     //Checking if the queried entityType is things
     if (correctedQuery.entityType == 'Things') {
