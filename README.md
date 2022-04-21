@@ -122,7 +122,8 @@ The config is used to specify the style and behaviour of the displayed content
 	clusterClick?: Function,
 	//The instance of the openLayers map. Only necessary for openLayers. 
 	map?: any,
-	fetchOptions?: RequestInit //fetch request options. Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+	fetchOptions?: RequestInit, //fetch request options. Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
+	queryParameters?: Map<String,String> //Parameters which shall be added to every request in the URL
 }
 ```  
 

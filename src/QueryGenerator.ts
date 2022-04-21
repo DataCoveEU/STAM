@@ -1,11 +1,13 @@
-import { QueryObject } from "./index";
+import { Config, QueryObject } from "./index";
 
 /**
  * Used for creating a link from a QueryObject
  */
 export class QueryGenerator {
   queryObject: QueryObject;
-  constructor(query: QueryObject) {
+  config: Config;
+  constructor(query: QueryObject, config: Config) {
+    this.config = config;
     this.queryObject = query;
   }
 
@@ -17,7 +19,7 @@ export class QueryGenerator {
   toString(main: Boolean = true) {
     var url: String = this.queryObject.entityType;
     var prefix: Array<String> = [];
-
+  
     // Adding id if present
     if (this.queryObject.id) {
       if (main) {
@@ -45,7 +47,7 @@ export class QueryGenerator {
       //Expand
       if (key == 'expand') {
         prefix.push(`$expand=${this.queryObject.expand.map<String>((queryObject) => {
-          return new QueryGenerator(queryObject).toString(false);
+          return new QueryGenerator(queryObject,this.config).toString(false);
         }).join(',')}`);
         continue;
       }
@@ -53,7 +55,10 @@ export class QueryGenerator {
       if (key != 'entityType' && key != 'pathSuffix') {
         prefix.push(`$${key}=${this.queryObject[key].toString()}`)
       }
+    }
 
+    if(main && this.config.queryParameters){
+      prefix.push(...Object.entries(this.config.queryParameters).map<String>(e => `${e[0]}=${e[1]}`));
     }
 
     //Check if a prefix is present

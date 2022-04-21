@@ -70,7 +70,8 @@ export interface Config {
   clusterMouseOver?: Function,
   clusterClick?: Function,
   map?: any,
-  fetchOptions?: RequestInit
+  fetchOptions?: RequestInit,
+  queryParameters?: Map<String,String>
 }
 
 //Add the style of the loader
