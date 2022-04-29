@@ -242,7 +242,7 @@ export class MapInterface extends EventEmitter {
     } else {
       if (correctedQuery.entityType == 'FeaturesOfInterest') {
         //If it is a FeaturesOfInterest
-        correctedQuery.select = ['feature'];
+        //correctedQuery.select = ['feature'];
       } else {
         throw new Error("Only Things and FeaturesOfInterest are supported");
       }
