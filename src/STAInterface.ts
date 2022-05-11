@@ -15,7 +15,7 @@ export class STAInterface {
 
     var limit: number = query.top;
     //Only query the given top elements, if a top value is present
-    if (query.top == undefined || query.top == null) {
+    if ((query.count != true ) && ((query.top == undefined || query.top == null))) {
       query.top = 10000;
     }
 
