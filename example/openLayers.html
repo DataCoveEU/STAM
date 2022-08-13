@@ -16,7 +16,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
-    <script src="https://unpkg.com/sta-map"></script>
+    <script src="../dist/stam.min.js"></script>
 </head>
 
 <body>
@@ -38,48 +38,30 @@
             }),
         });
         map.addLayer(new ol.layer.STAM({
-            map,
             //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
             //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
+            baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
             markerStyle: function (feature) {
                 return "yellow";
             },
-            cluster: false,
+            markerClick: (marker) => {
+                console.log(marker);
+                setTimeout(() => {
+                    marker.properties.closeMarker();
+                }, 1000);
+                var s = "";
+                for(var i =0;i<2000;i++) s += "HI\n";
+                return s;
+            },
+            cluster: true,
             // cachingDuration: 10,
             clusterMin: 5,
-            queryObject: [{
-                    zoomLevel: {
-                        from: 0,
-                        to: 7
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) eq 2",
-                    }
+            queryObject: {
+                    entityType: 'Things'
                 },
-                {
-                    zoomLevel: {
-                        from: 8,
-                        to: 9
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) eq 4",
-                    }
-                },
-                {
-                    zoomLevel: {
-                        from: 10,
-                        to: 11
-                    },
-                    query: {
-                        entityType: 'Things',
-                        filter: "length(Locations/name) gt 4",
-                    }
-                }
-            ]
+                map
         }));
 
         /*

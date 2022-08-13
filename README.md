@@ -116,6 +116,8 @@ The config is used to specify the style and behaviour of the displayed content
 	},
 	//Called, with the feature as an argument, when a marker is hovered.
 	markerMouseOver?: Function,
+	//Called, when a popup has been closed with the given feature of the marker
+	popupClose?: Function,
 	//Called, with the feature as an argument, when a marker is clicked. If the function returns a string, it is added into the popup.
 	markerClick?: Function,
 	//Called, with the feature as an argument, when a cluster is hovered.
