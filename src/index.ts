@@ -7,7 +7,7 @@ declare var L: any;
 declare var ol: any;
 declare var Plotly: any;
 
-var client:any;
+var client: any;
 
 export interface QueryObject {
   [key: string]: Array<string> | string | Array<QueryObject> | number | boolean,
@@ -66,12 +66,13 @@ export interface Config {
   },
   polygonStyle?: Function | string,
   markerMouseOver?: Function,
+  popupClose?: Function,
   markerClick?: Function,
   clusterMouseOver?: Function,
   clusterClick?: Function,
   map?: any,
   fetchOptions?: RequestInit,
-  queryParameters?: Map<String,String>
+  queryParameters?: Map<String, String>
 }
 
 //Add the style of the loader
@@ -120,9 +121,9 @@ if (typeof L !== "undefined") {
 
         //Get the style from the config
         var configStyle = typeof config.clusterStyle == 'function' ? (
-          (feature:any) => {
-            if(!feature._clusterStyleCache){
-              feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+          (feature: any) => {
+            if (!feature._clusterStyleCache) {
+              feature._clusterStyleCache = { style: config.clusterStyle(feature) };
             }
             return feature._clusterStyleCache.style?.polygon.hover;
           })(layer.feature) : config.clusterStyle?.polygon.hover;
@@ -139,9 +140,9 @@ if (typeof L !== "undefined") {
       var unsetHighlight = function (layer: any) {
         //Get the style from the config
         var configStyle = typeof config.clusterStyle == 'function' ? (
-          (feature:any) => {
-            if(!feature._clusterStyleCache){
-              feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+          (feature: any) => {
+            if (!feature._clusterStyleCache) {
+              feature._clusterStyleCache = { style: config.clusterStyle(feature) };
             }
             return feature._clusterStyleCache.style?.polygon.default;
           })(layer.feature) : config.clusterStyle?.polygon.default;
@@ -154,7 +155,7 @@ if (typeof L !== "undefined") {
         highlight = null;
       }
 
-      var initialBounds :any = null;
+      var initialBounds: any = null;
 
       //Called when the layer is added to the map
       this.on('add', function () {
@@ -193,9 +194,9 @@ if (typeof L !== "undefined") {
 
               //Get the style from the config
               var configStyle = typeof config.clusterStyle == 'function' ? (
-                (feature:any) => {
-                  if(!feature._clusterStyleCache){
-                    feature._clusterStyleCache = {style: config.clusterStyle(feature)};
+                (feature: any) => {
+                  if (!feature._clusterStyleCache) {
+                    feature._clusterStyleCache = { style: config.clusterStyle(feature) };
                   }
                   return feature._clusterStyleCache.style?.polygon.default;
                 })(layer.feature) : config.clusterStyle?.polygon.default;
@@ -256,10 +257,12 @@ if (typeof L !== "undefined") {
                 }
               });
 
-              layer.on('popupclose', function(){
-                if(initialBounds){
-                  console.log(this);
+              layer.on('popupclose', function () {
+                if (initialBounds) {
                   map.fitBounds(initialBounds);
+                }
+                if (config.popupClose) {
+                  config.popupClose(feature);
                 }
               });
 
@@ -288,22 +291,22 @@ if (typeof L !== "undefined") {
 
           // The polygonStyle should only be applied to Locations for Features from the STA service
           // not to generated squares
-          var styleFunction:Function = undefined;
+          var styleFunction: Function = undefined;
           if (typeof config.polygonStyle == 'function') {
             styleFunction = (feature: any) => {
               if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
                 return undefined;
               }
 
-              if(!feature._polygonStyleCache){
+              if (!feature._polygonStyleCache) {
                 //Add to object to prevent recall, if style function returns undefined
-                feature._polygonStyleCache = {style: config.polygonStyle(feature)};
+                feature._polygonStyleCache = { style: config.polygonStyle(feature) };
               }
 
               return feature._polygonStyleCache.style;
             };
           } else if (config.polygonStyle) {
-            styleFunction = function(feature: any) {
+            styleFunction = function (feature: any) {
               if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
                 return undefined;
               }
@@ -481,13 +484,13 @@ if (typeof ol != "undefined") {
 
           //Get style from config
           var style: any = typeof config.clusterStyle == 'function' ? (
-                            (feature:any) => {
-                              if(!feature._clusterStyleCache){
-                                feature._clusterStyleCache = {style: config.clusterStyle(olToGeoJSON(feature))};
-                              }
-                              return feature._clusterStyleCache.style;
-                            })(feature)
-                            : config.clusterStyle;
+            (feature: any) => {
+              if (!feature._clusterStyleCache) {
+                feature._clusterStyleCache = { style: config.clusterStyle(olToGeoJSON(feature)) };
+              }
+              return feature._clusterStyleCache.style;
+            })(feature)
+            : config.clusterStyle;
 
           //Get the individual styles
           var circleStyle = style?.circle as Path;
@@ -583,14 +586,8 @@ if (typeof ol != "undefined") {
     var
       container = document.getElementById('popup'),
       content_element = document.getElementById('popup-content'),
-      closer = document.getElementById('popup-closer');
-
-    //Marker close event
-    closer.onclick = function () {
-      overlay.setPosition(undefined);
-      closer.blur();
-      return false;
-    };
+      closer = document.getElementById('popup-closer'),
+      initialBounds:any = null;
 
     //Create overlay for popup
     var overlay = new ol.Overlay({
@@ -639,14 +636,14 @@ if (typeof ol != "undefined") {
 
           //Set config style if present
           if (config.clusterStyle) {
-            var clusterStyle = typeof config.clusterStyle == 'function' ? 
-                              ((feature:any) => {
-                                if(!feature._clusterStyleCache){
-                                  feature._clusterStyleCache = {style: config.clusterStyle(olToGeoJSON(feature))};
-                                }
-                                return feature._clusterStyleCache.style.polygon.hover;
-                              })(f)
-                              : config.clusterStyle.polygon.hover
+            var clusterStyle = typeof config.clusterStyle == 'function' ?
+              ((feature: any) => {
+                if (!feature._clusterStyleCache) {
+                  feature._clusterStyleCache = { style: config.clusterStyle(olToGeoJSON(feature)) };
+                }
+                return feature._clusterStyleCache.style.polygon.hover;
+              })(f)
+              : config.clusterStyle.polygon.hover
             style = pathToOl(clusterStyle);
           } else {
             var style = defaultHighlightStyle;
@@ -697,11 +694,32 @@ if (typeof ol != "undefined") {
         if (feature.get('@iot.id') != undefined) {
           var geometry = feature.getGeometry();
 
+          var close = function () {
+            if (config.popupClose) {
+              config.popupClose();
+            }
+            overlay.setPosition(undefined);
+            closer.blur();
+            olmap.getView().fit(initialBounds, {size: olmap.getSize()});
+            return false;
+          };
+
+          
+
           var content;
+          initialBounds = olmap.getView().calculateExtent()
           //Check type
           if (typeof config.markerClick == 'function') {
-            content = config.markerClick(olToGeoJSON(feature));
+
+            var geojsonFeature = olToGeoJSON(feature);
+            //Add close function
+            geojsonFeature.properties.closeMarker = close;
+
+            content = config.markerClick(geojsonFeature);
           }
+
+          //Marker close event
+          closer.onclick = close;
 
           //If no content, just insert the default content
           if (!content) {
