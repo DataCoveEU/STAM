@@ -154,6 +154,7 @@ if (typeof L !== "undefined") {
         highlight = null;
       }
 
+      var initialBounds :any = null;
 
       //Called when the layer is added to the map
       this.on('add', function () {
@@ -227,9 +228,14 @@ if (typeof L !== "undefined") {
 
               //Add a click event to the markers
               layer.on('click', function () {
+                //Get view before opening popup
+                initialBounds = map.getBounds();
                 if (!layer.getPopup()) {
                   //Bind popup with functions return if present
                   if (config.markerClick) {
+                    feature.properties.closeMarker = () => {
+                      layer.bindPopup(out).closePopup();
+                    }
                     var out = config.markerClick(feature);
                     if (out) {
                       defaultPopup = false;
@@ -244,7 +250,16 @@ if (typeof L !== "undefined") {
                     layer.bindPopup(div).openPopup();
                   }
                 } else {
+                  //markerClick is only called the first time a marker has been clicked
+                  //config.markerClick(feature);
                   layer.getPopup().openPopup();
+                }
+              });
+
+              layer.on('popupclose', function(){
+                if(initialBounds){
+                  console.log(this);
+                  map.fitBounds(initialBounds);
                 }
               });
 

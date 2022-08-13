@@ -43,6 +43,8 @@ A GeoJson with an extra property named getData.
 
 getData is a object, the keys are the observedProperties and the values are async functions.
 
+closePopup is a function, which, when called, closes the current popup.
+
 These functions take a callback as a argument. The callback gets a predefined QueryObject as an argument, can change it and has to return it.
 
 The function returns the data inside the value attribute. 
