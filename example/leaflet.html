@@ -19,7 +19,7 @@
         }
     </style>
 
-    <script src="https://unpkg.com/sta-map"></script>
+    <script src="../dist/stam.min.js"></script>
 </head>
 
 <body>
@@ -41,6 +41,15 @@
             baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
             markerStyle: function (feature) {
                 return "yellow";
+            },
+            markerClick: (marker) => {
+                console.log(marker);
+                setTimeout(() => {
+                    marker.properties.closeMarker();
+                }, 1000);
+                var s = "";
+                for(var i =0;i<2000;i++) s += "HI\n";
+                return s;
             },
             cluster: true,
             // cachingDuration: 10,
