@@ -576,10 +576,18 @@ if (typeof ol != "undefined") {
 
     //If popup is not in the html dom, add it
     if (!document.getElementById('popup')) {
-      document.writeln(`<div id="popup" class="ol-popup">
-      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-      <div id="popup-content"></div>
-      </div>`);
+      var div = document.createElement('div');
+      div.setAttribute('id', 'popup');
+      div.classList.add('ol-popup');
+      var a = document.createElement('a');
+      a.setAttribute('id', 'popup-closer');
+      a.setAttribute('href', "#");
+      a.classList.add('ol-popup-closer');
+      div.appendChild(a);
+      var content = document.createElement('div');
+      content.setAttribute('id', 'popup-content');
+      div.appendChild(content);
+      document.body.appendChild(div);
     }
 
     //Creating the popup

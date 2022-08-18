@@ -154,6 +154,30 @@ To use MQTT functionalities, the corresponding client library has to be included
 <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
 ```
 
+## Examples
+The STAM library is used in different proof of concept implementation under the Cos4Cloud project which is funded by the European Commission under Grant Agreement No. 863463.
+
+The following Web-Mapping applications illustrate the use of STAM by map visualization starting from the FeaturesOfInterest.
+
+### Open Access
+These Web-Mapping applications access SensorThings API endpoints that are unprotected (open).
+
+#### Leaflet based client application
+[https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-app/](https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-app/)
+
+#### OpenLayers based client application
+[https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-app/ol.html](https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-app/ol.html)
+
+### Access Controlled
+These Web-Mapping applications access *protected* SensorThings API endpoints that are unprotected (open). A request, initited via STAM must include an OAuth2 access token.
+
+#### Leaflet based client application
+[https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-appx/](https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-appx/)
+
+#### OpenLayers based client application
+[https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-appx/ol.html](https://cos4cloud.demo.secure-dimensions.de/staplus-viewer-appx/ol.html)
+
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
@@ -165,14 +189,13 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tr>
     <td align="center"><a href="https://github.com/TobiasPressler"><img src="https://avatars3.githubusercontent.com/u/47741525?v=4?s=100" width="100px;" alt=""/><br /><sub><b>TobiasPressler</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Code">💻</a> <a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Documentation">📖</a></td>
     <td align="center"><a href="https://github.com/hylkevds"><img src="https://avatars2.githubusercontent.com/u/4989461?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Hylke van der Schaaf</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=hylkevds" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/securedimensions"><img src="https://avatars.githubusercontent.com/u/25054643?v=4?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Andreas Matheus</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=securedimensions" title="Code">💻</a></td>
   </tr>
 </table>
 
 <!-- markdownlint-enable -->
 <!-- prettier-ignore-end -->
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-  
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome
 
