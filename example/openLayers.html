@@ -1,70 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
-    <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/css/ol.css" type="text/css">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/ol@v6.3.1/ol.css"
+      type="text/css"
+    />
     <style>
-        .map {
-            height: 800px;
-            width: 100%;
-        }
+      .map {
+        height: 800px;
+        width: 100%;
+      }
     </style>
-    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.3.1/build/ol.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@main/dist/en/v6.3.1/build/ol.js"></script>
     <script src="../dist/stam.min.js"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     <!-- <div id="map" class="map"></div> -->
     <div id="mapOl" class="map"></div>
     <script>
-        var map = new ol.Map({
-            renderers: ['Canvas', 'VML'],
-            layers: [
-                new ol.layer.Tile({
-                    source: new ol.source.OSM(),
-                }),
+      var map = new ol.Map({
+        renderers: ["Canvas", "VML"],
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM(),
+          }),
+        ],
+        target: "mapOl",
+        view: new ol.View({
+          center: [808701.59, 6493626.85],
+          zoom: 8,
+        }),
+      });
+      map.addLayer(
+        new ol.layer.STAM({
+          //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+          //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+          //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+          //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
+          baseUrl:
+            "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
+          markerStyle: function (feature) {
+            return "yellow";
+          },
+          markerClick: (marker) => {
+            console.log(marker);
+            setTimeout(() => {
+              marker.properties.closeMarker();
+            }, 1000);
+            var s = "";
+            for (var i = 0; i < 2000; i++) s += "HI\n";
+            return s;
+          },
+          cluster: true,
+          // cachingDuration: 10,
+          clusterMin: 5,
+          queryObject: {
+            entityType: "Things",
+          },
+          map,
+        })
+      );
 
-            ],
-            target: 'mapOl',
-            view: new ol.View({
-                center: [808701.59, 6493626.85],
-                zoom: 8,
-            }),
-        });
-        map.addLayer(new ol.layer.STAM({
-            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
-            //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
-            baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            markerStyle: function (feature) {
-                return "yellow";
-            },
-            markerClick: (marker) => {
-                console.log(marker);
-                setTimeout(() => {
-                    marker.properties.closeMarker();
-                }, 1000);
-                var s = "";
-                for(var i =0;i<2000;i++) s += "HI\n";
-                return s;
-            },
-            cluster: true,
-            // cachingDuration: 10,
-            clusterMin: 5,
-            queryObject: {
-                    entityType: 'Things'
-                },
-                map
-        }));
-
-        /*
+      /*
         {
             baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
             //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
@@ -115,6 +119,5 @@
             ]
         */
     </script>
-</body>
-
+  </body>
 </html>

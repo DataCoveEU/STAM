@@ -1,7 +1,8 @@
 //@ts-ignore
-import picoModal from 'picomodal';
-import { textToMarker } from './leaflet/markers';
-import { MapInterface } from './MapInterface';
+import picoModal from "picomodal";
+import { textToMarker } from "./leaflet/markers";
+import { MapInterface } from "./MapInterface";
+import "./leaflet/realtime";
 
 declare var L: any;
 declare var ol: any;
@@ -10,81 +11,80 @@ declare var Plotly: any;
 var client: any;
 
 export interface QueryObject {
-  [key: string]: Array<string> | string | Array<QueryObject> | number | boolean,
-  entityType: string,
-  filter?: string,
-  select?: Array<string>,
-  expand?: Array<QueryObject>
-  top?: number,
-  skip?: number,
-  count?: boolean,
-  id?: number,
-  resultFormat?: string,
-  orderby?: string,
-  pathSuffix?: string
+  [key: string]: Array<string> | string | Array<QueryObject> | number | boolean;
+  entityType: string;
+  filter?: string;
+  select?: Array<string>;
+  expand?: Array<QueryObject>;
+  top?: number;
+  skip?: number;
+  count?: boolean;
+  id?: number;
+  resultFormat?: string;
+  orderby?: string;
+  pathSuffix?: string;
 }
 
 export interface Range {
-  from: number,
-  to?: number
+  from: number;
+  to?: number;
 }
 
 export interface RangeQuery {
-  zoomLevel: number | Range,
-  query: QueryObject
+  zoomLevel: number | Range;
+  query: QueryObject;
 }
 
 export interface Path {
-  color: string,
-  weight: number,
-  opacity: number,
-  fillColor: string,
-  fillOpacity: number,
+  color: string;
+  weight: number;
+  opacity: number;
+  fillColor: string;
+  fillOpacity: number;
 }
 
 export interface Style {
-  hover: Path,
-  default: Path
+  hover: Path;
+  default: Path;
 }
 
 export interface Config {
   plot: {
-    startDate: Date,
-    offset?: number,
-    endDate?: Date
-  },
-  cachingDuration: number,
-  mqtt: boolean,
-  cluster: boolean,
-  clusterMin: number,
-  queryObject: QueryObject | Array<RangeQuery>,
-  baseUrl: string,
-  markerStyle?: Function | string,
-  clusterStyle?: Function | {
-    circle: Path,
-    polygon: Style
-  },
-  polygonStyle?: Function | string,
-  markerMouseOver?: Function,
-  popupClose?: Function,
-  markerClick?: Function,
-  clusterMouseOver?: Function,
-  clusterClick?: Function,
-  map?: any,
-  fetchOptions?: RequestInit,
-  queryParameters?: Map<String, String>
+    startDate: Date;
+    offset?: number;
+    endDate?: Date;
+  };
+  cachingDuration: number;
+  mqtt: boolean;
+  cluster: boolean;
+  clusterMin: number;
+  queryObject: QueryObject | Array<RangeQuery>;
+  baseUrl: string;
+  markerStyle?: Function | string;
+  clusterStyle?:
+    | Function
+    | {
+        circle: Path;
+        polygon: Style;
+      };
+  polygonStyle?: Function | string;
+  markerMouseOver?: Function;
+  popupClose?: Function;
+  markerClick?: Function;
+  clusterMouseOver?: Function;
+  clusterClick?: Function;
+  map?: any;
+  fetchOptions?: RequestInit;
+  queryParameters?: Map<String, String>;
 }
 
 //Add the style of the loader
-addCss(`.loader{border:16px solid #f3f3f3;border-top:16px solid #3498db;border-radius:50%;width:60px;height:60px;left:0;right:0;top:0;margin:auto;bottom:0;position:fixed;animation:spin 2s linear infinite}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}`);
+addCss(
+  `.loader{border:16px solid #f3f3f3;border-top:16px solid #3498db;border-radius:50%;width:60px;height:60px;left:0;right:0;top:0;margin:auto;bottom:0;position:fixed;animation:spin 2s linear infinite}@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}`
+);
 
 //Leaflet
 if (typeof L !== "undefined") {
-
-  //Will be replaced at build with leaflet realtime js
-  "leaflet-realtime";
-
-
   //Layer that represents all count circles and tooltips
   var countLayer: any;
   var geojsonLayer: any;
@@ -96,20 +96,20 @@ if (typeof L !== "undefined") {
       var highlight: Boolean;
 
       var cache: any = {
-        type: 'FeatureCollection',
-        features: []
-      }
+        type: "FeatureCollection",
+        features: [],
+      };
 
       //Default style
       var style = {
-        'default': {
-          'opacity': 0,
-          'fillOpacity': 0
+        default: {
+          opacity: 0,
+          fillOpacity: 0,
         },
-        'highlight': {
-          'color': 'red',
-          'opacity': 1,
-        }
+        highlight: {
+          color: "red",
+          opacity: 1,
+        },
       };
 
       //Used for setting the style of a polygon when it is hovered
@@ -120,13 +120,17 @@ if (typeof L !== "undefined") {
         }
 
         //Get the style from the config
-        var configStyle = typeof config.clusterStyle == 'function' ? (
-          (feature: any) => {
-            if (!feature._clusterStyleCache) {
-              feature._clusterStyleCache = { style: config.clusterStyle(feature) };
-            }
-            return feature._clusterStyleCache.style?.polygon.hover;
-          })(layer.feature) : config.clusterStyle?.polygon.hover;
+        var configStyle =
+          typeof config.clusterStyle == "function"
+            ? ((feature: any) => {
+                if (!feature._clusterStyleCache) {
+                  feature._clusterStyleCache = {
+                    style: config.clusterStyle(feature),
+                  };
+                }
+                return feature._clusterStyleCache.style?.polygon.hover;
+              })(layer.feature)
+            : config.clusterStyle?.polygon.hover;
 
         //Add a transparent background, if no background was set
         addTransparentBackground(configStyle);
@@ -134,18 +138,22 @@ if (typeof L !== "undefined") {
         // Set highlight style on layer and store to variable
         layer.setStyle(configStyle ?? style.highlight);
         highlight = layer;
-      }
+      };
 
       //Remove the style after the mouse hovered over a polygon
       var unsetHighlight = function (layer: any) {
         //Get the style from the config
-        var configStyle = typeof config.clusterStyle == 'function' ? (
-          (feature: any) => {
-            if (!feature._clusterStyleCache) {
-              feature._clusterStyleCache = { style: config.clusterStyle(feature) };
-            }
-            return feature._clusterStyleCache.style?.polygon.default;
-          })(layer.feature) : config.clusterStyle?.polygon.default;
+        var configStyle =
+          typeof config.clusterStyle == "function"
+            ? ((feature: any) => {
+                if (!feature._clusterStyleCache) {
+                  feature._clusterStyleCache = {
+                    style: config.clusterStyle(feature),
+                  };
+                }
+                return feature._clusterStyleCache.style?.polygon.default;
+              })(layer.feature)
+            : config.clusterStyle?.polygon.default;
 
         //Add a transparent background, if no background was set
         addTransparentBackground(configStyle);
@@ -153,15 +161,14 @@ if (typeof L !== "undefined") {
         // Set default style and clear variable
         layer.setStyle(configStyle ?? style.default);
         highlight = null;
-      }
+      };
 
       var initialBounds: any = null;
 
       //Called when the layer is added to the map
-      this.on('add', function () {
+      this.on("add", function () {
         if (this._map != undefined) {
           var map = this._map;
-
 
           var zoom = map.getZoom();
 
@@ -170,22 +177,24 @@ if (typeof L !== "undefined") {
           //Called on every feature of the map
           var onEachFeature = (feature: any, layer: any) => {
             //Check if a polygon is cluster generated by the library and a polygon
-            if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
+            if (
+              feature.geometry?.type == "Polygon" &&
+              feature.properties.count
+            ) {
               //Check for mouse hover
-              layer.on('mouseover', function () {
+              layer.on("mouseover", function () {
                 if (config.clusterMouseOver) config.clusterMouseOver(feature);
 
                 //Highlight the polygon with the given style
                 setHighlight(layer);
               });
 
-              layer.on('mouseout', function () {
+              layer.on("mouseout", function () {
                 unsetHighlight(layer);
               });
 
-              layer.on('click', function () {
-
-                //Configure a click on the cluster, if nothing is configured or nothing returned, the map zooms to the bounds of the polygon 
+              layer.on("click", function () {
+                //Configure a click on the cluster, if nothing is configured or nothing returned, the map zooms to the bounds of the polygon
                 if (config.clusterClick) {
                   return config.clusterClick(feature);
                 }
@@ -193,13 +202,17 @@ if (typeof L !== "undefined") {
               });
 
               //Get the style from the config
-              var configStyle = typeof config.clusterStyle == 'function' ? (
-                (feature: any) => {
-                  if (!feature._clusterStyleCache) {
-                    feature._clusterStyleCache = { style: config.clusterStyle(feature) };
-                  }
-                  return feature._clusterStyleCache.style?.polygon.default;
-                })(layer.feature) : config.clusterStyle?.polygon.default;
+              var configStyle =
+                typeof config.clusterStyle == "function"
+                  ? ((feature: any) => {
+                      if (!feature._clusterStyleCache) {
+                        feature._clusterStyleCache = {
+                          style: config.clusterStyle(feature),
+                        };
+                      }
+                      return feature._clusterStyleCache.style?.polygon.default;
+                    })(layer.feature)
+                  : config.clusterStyle?.polygon.default;
 
               //Add a transparent background, if no background was set
               addTransparentBackground(configStyle);
@@ -212,15 +225,17 @@ if (typeof L !== "undefined") {
               var lat = (bounds._northEast.lat + bounds._southWest.lat) / 2;
               var lng = (bounds._northEast.lng + bounds._southWest.lng) / 2;
 
-
-
               //Position a circle in the center
               var circle = L.circleMarker(L.latLng(lat, lng), {
-                radius: 127 / 3
+                radius: 127 / 3,
               });
 
               //Add the count of things inside the polygon to the circle
-              circle.bindTooltip(`<span>${feature.properties.count}</span>`, { permanent: true, direction: "center", className: 'count' });
+              circle.bindTooltip(`<span>${feature.properties.count}</span>`, {
+                permanent: true,
+                direction: "center",
+                className: "count",
+              });
 
               //Add the circle to the countLayer
               countLayer.addLayer(circle);
@@ -228,7 +243,7 @@ if (typeof L !== "undefined") {
               var defaultPopup: boolean = true;
 
               //Add a click event to the markers
-              layer.on('click', function () {
+              layer.on("click", function () {
                 //Get view before opening popup
                 initialBounds = map.getBounds();
                 if (!layer.getPopup()) {
@@ -236,7 +251,7 @@ if (typeof L !== "undefined") {
                   if (config.markerClick) {
                     feature.properties.closeMarker = () => {
                       layer.bindPopup(out).closePopup();
-                    }
+                    };
                     var out = config.markerClick(feature);
                     if (out) {
                       defaultPopup = false;
@@ -245,8 +260,8 @@ if (typeof L !== "undefined") {
                   }
 
                   if (defaultPopup) {
-                    //Default behavior 
-                    var div = document.createElement('div');
+                    //Default behavior
+                    var div = document.createElement("div");
                     createDefaultPopup(div, feature, config);
                     layer.bindPopup(div).openPopup();
                   }
@@ -257,7 +272,7 @@ if (typeof L !== "undefined") {
                 }
               });
 
-              layer.on('popupclose', function () {
+              layer.on("popupclose", function () {
                 if (initialBounds) {
                   map.fitBounds(initialBounds);
                 }
@@ -266,8 +281,9 @@ if (typeof L !== "undefined") {
                 }
               });
 
-              layer.on('mouseover', function () {
-                if (config.markerMouseOver) return config.markerMouseOver(feature);
+              layer.on("mouseover", function () {
+                if (config.markerMouseOver)
+                  return config.markerMouseOver(feature);
               });
             }
           };
@@ -275,7 +291,10 @@ if (typeof L !== "undefined") {
           //Used for marker styling
           var pointToLayer = function (feature: any, latlng: any) {
             //Check if style function is async
-            if (typeof config.markerStyle == 'function' && config.markerStyle.constructor.name === "AsyncFunction") {
+            if (
+              typeof config.markerStyle == "function" &&
+              config.markerStyle.constructor.name === "AsyncFunction"
+            ) {
               var marker = L.marker(latlng);
               //Add marker to layerGroup when done
               config.markerStyle(feature).then((color: string) => {
@@ -284,7 +303,14 @@ if (typeof L !== "undefined") {
               return marker;
             } else {
               //Marker coloring
-              var marker = L.marker(latlng, { icon: typeof config.markerStyle == 'function' ? textToMarker(config.markerStyle(feature)) : typeof config.markerStyle == 'string' ? textToMarker(config.markerStyle) : new L.Icon.Default() });
+              var marker = L.marker(latlng, {
+                icon:
+                  typeof config.markerStyle == "function"
+                    ? textToMarker(config.markerStyle(feature))
+                    : typeof config.markerStyle == "string"
+                    ? textToMarker(config.markerStyle)
+                    : new L.Icon.Default(),
+              });
               return marker;
             }
           };
@@ -292,31 +318,42 @@ if (typeof L !== "undefined") {
           // The polygonStyle should only be applied to Locations for Features from the STA service
           // not to generated squares
           var styleFunction: Function = undefined;
-          if (typeof config.polygonStyle == 'function') {
+          if (typeof config.polygonStyle == "function") {
             styleFunction = (feature: any) => {
-              if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
+              if (
+                feature.geometry?.type == "Polygon" &&
+                feature.properties.count
+              ) {
                 return undefined;
               }
 
               if (!feature._polygonStyleCache) {
                 //Add to object to prevent recall, if style function returns undefined
-                feature._polygonStyleCache = { style: config.polygonStyle(feature) };
+                feature._polygonStyleCache = {
+                  style:
+                    typeof config.polygonStyle === "string"
+                      ? config.polygonStyle
+                      : config.polygonStyle(feature),
+                };
               }
 
               return feature._polygonStyleCache.style;
             };
           } else if (config.polygonStyle) {
             styleFunction = function (feature: any) {
-              if (feature.geometry?.type == 'Polygon' && feature.properties.count) {
+              if (
+                feature.geometry?.type == "Polygon" &&
+                feature.properties.count
+              ) {
                 return undefined;
               }
               return config.polygonStyle;
             };
           }
 
-          //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating 
-          map.on('layeradd', function () {
-            map.off('layeradd');
+          //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating
+          map.on("layeradd", function () {
+            map.off("layeradd");
 
             //Create a geojson layer
             /* geojsonLayer = L.geoJSON(null, {
@@ -324,28 +361,32 @@ if (typeof L !== "undefined") {
                pointToLayer,
                style: config.clusterStyle
              });*/
-            geojsonLayer = L.realtime(function (resolve: any, reject: any) {
-              resolve(cache);
-            }, {
-              onEachFeature,
-              pointToLayer,
-              getFeatureId: function (geojson: any) {
-                //Prevent style reset
-                if (highlight) setHighlight(highlight);
-                //Return id if possible
-                if (geojson.properties['@iot.id']) return geojson.properties['@iot.id'];
-
-                var flatten = geojson.geometry.coordinates.flat(3);
-                if (geojson.properties.count) {
-                  return flatten.join('/');
-                } else {
-                  //Create id from coordinates
-                  return `${flatten[0]}/${flatten[1]}`;
-                }
+            geojsonLayer = L.realtime(
+              function (resolve: any, reject: any) {
+                resolve(cache);
               },
-              style: styleFunction,
-              interval: 500
-            });
+              {
+                onEachFeature,
+                pointToLayer,
+                getFeatureId: function (geojson: any) {
+                  //Prevent style reset
+                  if (highlight) setHighlight(highlight);
+                  //Return id if possible
+                  if (geojson.properties["@iot.id"])
+                    return geojson.properties["@iot.id"];
+
+                  var flatten = geojson.geometry.coordinates.flat(3);
+                  if (geojson.properties.count) {
+                    return flatten.join("/");
+                  } else {
+                    //Create id from coordinates
+                    return `${flatten[0]}/${flatten[1]}`;
+                  }
+                },
+                style: styleFunction,
+                interval: 500,
+              }
+            );
 
             //Add count and geojson layer
             this.addLayer(countLayer);
@@ -353,25 +394,32 @@ if (typeof L !== "undefined") {
 
             //Initiate the layer group with the current bounds and zoom level
             var bounds = map.getBounds();
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]);
+            mapInterface.getLayerData(map.getZoom(), [
+              bounds._northEast.lng,
+              bounds._northEast.lat,
+              bounds._southWest.lng,
+              bounds._southWest.lat,
+            ]);
           });
 
-          mapInterface.on('change', function (geojson: any) {
-            if (geojson.zoom == zoom) {
-              /*
+          mapInterface.on(
+            "change",
+            function (geojson: any) {
+              if (geojson.zoom == zoom) {
+                /*
               //Clear layer on change
               geojsonLayer.clearLayers();
               //Add the new data
               geojsonLayer.addData(geojson);
               //Force cluster layer clearing
               clearCluster = true;*/
-              cache = geojson;
-            }
-          }.bind(this));
-
+                cache = geojson;
+              }
+            }.bind(this)
+          );
 
           //Called when zoom ended or the map was moved. The geojson layer is removed and a new one added, because the loaded geojson's are cached inside the MapInterface
-          map.on('moveend', function () {
+          map.on("moveend", function () {
             //Update the zoom variable if the zoom was changed
             if (zoom != map.getZoom()) {
               zoom = map.getZoom();
@@ -381,26 +429,33 @@ if (typeof L !== "undefined") {
             var bounds = map.getBounds();
 
             //add a new layer and remove all old layers
-            mapInterface.getLayerData(map.getZoom(), [bounds._northEast.lng, bounds._northEast.lat, bounds._southWest.lng, bounds._southWest.lat]);
+            mapInterface.getLayerData(map.getZoom(), [
+              bounds._northEast.lng,
+              bounds._northEast.lat,
+              bounds._southWest.lng,
+              bounds._southWest.lat,
+            ]);
           });
         }
       });
     },
-
   });
 
   (L as any).stam = function (config: Config) {
     return new (L as any).Stam(config);
-  }
+  };
 
   //Adding custom css to head, so that the count tooltipp's background is transparent
-  addCss('.leaflet-tooltip.count {background-color: transparent;border: transparent;  box-shadow: none;  font-weight: bold;font-size: 20px;}');
+  addCss(
+    ".leaflet-tooltip.count {background-color: transparent;border: transparent;  box-shadow: none;  font-weight: bold;font-size: 20px;}"
+  );
 }
 
 if (typeof ol != "undefined") {
-
   //Adding css style for the marker popup
-  addCss(`.ol-popup{position:absolute;min-width:180px;background-color:#fff;-webkit-filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));padding:15px;border-radius:10px;border:1px solid #ccc;bottom:40px;left:-50px}.ol-popup:after,.ol-popup:before{top:100%;border:solid transparent;content:" ";height:0;width:0;position:absolute;pointer-events:none}.ol-popup:after{border-top-color:#fff;border-width:10px;left:48px;margin-left:-10px}.ol-popup:before{border-top-color:#ccc;border-width:11px;left:48px;margin-left:-11px}.ol-popup-closer{text-decoration:none;position:absolute;top:2px;right:8px}.ol-popup-closer:after{content:"✖"}`);
+  addCss(
+    `.ol-popup{position:absolute;min-width:180px;background-color:#fff;-webkit-filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));padding:15px;border-radius:10px;border:1px solid #ccc;bottom:40px;left:-50px}.ol-popup:after,.ol-popup:before{top:100%;border:solid transparent;content:" ";height:0;width:0;position:absolute;pointer-events:none}.ol-popup:after{border-top-color:#fff;border-width:10px;left:48px;margin-left:-10px}.ol-popup:before{border-top-color:#ccc;border-width:11px;left:48px;margin-left:-11px}.ol-popup-closer{text-decoration:none;position:absolute;top:2px;right:8px}.ol-popup-closer:after{content:"✖"}`
+  );
 
   //Since ol 6 ol.inherits was removed
   var ol_ext_inherits = function (child: any, parent: any) {
@@ -444,37 +499,47 @@ if (typeof ol != "undefined") {
         //Check the feature type
         if (feature.getGeometry().getType() == "Point") {
           //Check if it is a async function
-          if (typeof config.markerStyle == 'function' && config.markerStyle.constructor.name === "AsyncFunction") {
+          if (
+            typeof config.markerStyle == "function" &&
+            config.markerStyle.constructor.name === "AsyncFunction"
+          ) {
             //Get the color an set the style
             config.markerStyle(olToGeoJSON(feature)).then((color: string) => {
-              feature.setStyle(new ol.style.Style({
-                image: new ol.style.Icon(({
-                  anchor: [0.5, 1],
-                  scale: 0.5,
-                  anchorXUnits: 'fraction',
-                  anchorYUnits: 'fraction',
-                  //Call function if present, with the feature, if not use the color name if present. Default is blue
-                  src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`
-                })),
-              }));
+              feature.setStyle(
+                new ol.style.Style({
+                  image: new ol.style.Icon({
+                    anchor: [0.5, 1],
+                    scale: 0.5,
+                    anchorXUnits: "fraction",
+                    anchorYUnits: "fraction",
+                    //Call function if present, with the feature, if not use the color name if present. Default is blue
+                    src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+                  }),
+                })
+              );
             });
             return null;
           }
           //Add the marker image
           var style = new ol.style.Style({
-            image: new ol.style.Icon(({
+            image: new ol.style.Icon({
               anchor: [0.5, 1],
               scale: 0.5,
-              anchorXUnits: 'fraction',
-              anchorYUnits: 'fraction',
+              anchorXUnits: "fraction",
+              anchorYUnits: "fraction",
               //Call function if present, with the feature, if not use the color name if present. Default is blue
-              src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${typeof config.markerStyle == 'function' ? config.markerStyle(olToGeoJSON(feature)) : config.markerStyle ? config.markerStyle : 'blue'}.png`
-            })),
+              src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${
+                typeof config.markerStyle == "function"
+                  ? config.markerStyle(olToGeoJSON(feature))
+                  : config.markerStyle
+                  ? config.markerStyle
+                  : "blue"
+              }.png`,
+            }),
           });
 
           return style;
         } else {
-
           //Get extends of cluster
           var cords = feature.getGeometry().getExtent();
 
@@ -483,32 +548,41 @@ if (typeof ol != "undefined") {
           var lat = (cords[1] + cords[3]) / 2;
 
           //Get style from config
-          var style: any = typeof config.clusterStyle == 'function' ? (
-            (feature: any) => {
-              if (!feature._clusterStyleCache) {
-                feature._clusterStyleCache = { style: config.clusterStyle(olToGeoJSON(feature)) };
-              }
-              return feature._clusterStyleCache.style;
-            })(feature)
-            : config.clusterStyle;
+          var style: any =
+            typeof config.clusterStyle == "function"
+              ? ((feature: any) => {
+                  if (!feature._clusterStyleCache) {
+                    feature._clusterStyleCache = {
+                      style: config.clusterStyle(olToGeoJSON(feature)),
+                    };
+                  }
+                  return feature._clusterStyleCache.style;
+                })(feature)
+              : config.clusterStyle;
 
           //Get the individual styles
           var circleStyle = style?.circle as Path;
           var polygonStyle = style?.polygon.default as Path;
 
-
-          if (feature.get('count') != undefined) {
+          if (feature.get("count") != undefined) {
             //Add circle with text
-            var circle = new ol.Feature({ geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6), name: 'cluster' });
+            var circle = new ol.Feature({
+              geometry: new ol.geom.Circle(
+                [long, lat],
+                (cords[2] - cords[0]) / 6
+              ),
+              name: "cluster",
+            });
 
             //Create the text style
             var text = new ol.style.Text({
-              font: 30 + 'px Calibri,sans-serif',
-              fill: new ol.style.Fill({ color: '#000' }),
+              font: 30 + "px Calibri,sans-serif",
+              fill: new ol.style.Fill({ color: "#000" }),
               stroke: new ol.style.Stroke({
-                color: '#fff', width: 2
+                color: "#fff",
+                width: 2,
               }),
-              text: `${feature.get('count')}`
+              text: `${feature.get("count")}`,
             });
 
             //Add circle style, if present
@@ -517,14 +591,16 @@ if (typeof ol != "undefined") {
               style.setText(text);
               circle.setStyle(style);
             } else {
-              circle.setStyle(new ol.style.Style({
-                stroke: new ol.style.Stroke({
-                  width: 2,
-                  color: 'red',
-                  radius: 1
-                }),
-                text
-              }));
+              circle.setStyle(
+                new ol.style.Style({
+                  stroke: new ol.style.Stroke({
+                    width: 2,
+                    color: "red",
+                    radius: 1,
+                  }),
+                  text,
+                })
+              );
             }
 
             //Add circle to circle layer
@@ -533,19 +609,22 @@ if (typeof ol != "undefined") {
 
           //Convert path to openLayers style
           if (polygonStyle) {
-            polygonStyle = pathToOl(polygonStyle)
+            polygonStyle = pathToOl(polygonStyle);
           }
 
           //Use config style if preset
-          return polygonStyle ?? new ol.style.Style({
-            stroke: new ol.style.Stroke({
-              color: '#3399CC',
-              width: 1.25
-            }),
-            fill: new ol.style.Fill({ color: 'rgba(255,255,255,0.4)' })
-          });
+          return (
+            polygonStyle ??
+            new ol.style.Style({
+              stroke: new ol.style.Stroke({
+                color: "#3399CC",
+                width: 1.25,
+              }),
+              fill: new ol.style.Fill({ color: "rgba(255,255,255,0.4)" }),
+            })
+          );
         }
-      }
+      },
     });
 
     //Create a layergroup out of the circle layer and GeoJson layer
@@ -554,14 +633,13 @@ if (typeof ol != "undefined") {
     //Add layer to the map
     olmap.addLayer(layer);
 
-
     //Create a geojson format with the current projection
     var format = new ol.format.GeoJSON({
-      featureProjection: olmap.getView().getProjection().getCode()
+      featureProjection: olmap.getView().getProjection().getCode(),
     });
 
     //Fetch the geojson
-    mapInterface.on('change', (geoJson: any) => {
+    mapInterface.on("change", (geoJson: any) => {
       if (geoJson.zoom == zoom) {
         //Clear the geojson layer
         vectorLayer.getSource().clear();
@@ -570,12 +648,12 @@ if (typeof ol != "undefined") {
         clearCircles = true;
 
         //Create the geojson and add it to the source
-        vectorLayer.getSource().addFeatures(format.readFeatures(geoJson))
+        vectorLayer.getSource().addFeatures(format.readFeatures(geoJson));
       }
     });
 
     //If popup is not in the html dom, add it
-    if (!document.getElementById('popup')) {
+    if (!document.getElementById("popup")) {
       document.writeln(`<div id="popup" class="ol-popup">
       <a href="#" id="popup-closer" class="ol-popup-closer"></a>
       <div id="popup-content"></div>
@@ -583,17 +661,16 @@ if (typeof ol != "undefined") {
     }
 
     //Creating the popup
-    var
-      container = document.getElementById('popup'),
-      content_element = document.getElementById('popup-content'),
-      closer = document.getElementById('popup-closer'),
-      initialBounds:any = null;
+    var container = document.getElementById("popup"),
+      content_element = document.getElementById("popup-content"),
+      closer = document.getElementById("popup-closer"),
+      initialBounds: any = null;
 
     //Create overlay for popup
     var overlay = new ol.Overlay({
       element: container,
       autoPan: true,
-      offset: [0, -10]
+      offset: [0, -10],
     });
     //Add popup to map
     olmap.addOverlay(overlay);
@@ -602,28 +679,27 @@ if (typeof ol != "undefined") {
 
     var defaultHighlightStyle = new ol.style.Style({
       fill: new ol.style.Fill({
-        color: 'rgba(255,255,255,0.7)',
+        color: "rgba(255,255,255,0.7)",
       }),
       stroke: new ol.style.Stroke({
-        color: '#3399CC',
+        color: "#3399CC",
         width: 3,
       }),
     });
 
     var last: any = null;
 
-    olmap.on('pointermove', function (e: any) {
-
+    olmap.on("pointermove", function (e: any) {
       //Get the hovered feature
       var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
         //Check if it is a cluster
-        if (f.get('count')) {
-
+        if (f.get("count")) {
           //Set last clicked element if not set
           if (last != f) {
             last = f;
             //Call mouse over, but only once per marker
-            if (config.clusterMouseOver) config.clusterMouseOver(olToGeoJSON(f));
+            if (config.clusterMouseOver)
+              config.clusterMouseOver(olToGeoJSON(f));
           }
           //Remove style of old selected, if the current selected is a new one
           if (selected != f) {
@@ -636,14 +712,17 @@ if (typeof ol != "undefined") {
 
           //Set config style if present
           if (config.clusterStyle) {
-            var clusterStyle = typeof config.clusterStyle == 'function' ?
-              ((feature: any) => {
-                if (!feature._clusterStyleCache) {
-                  feature._clusterStyleCache = { style: config.clusterStyle(olToGeoJSON(feature)) };
-                }
-                return feature._clusterStyleCache.style.polygon.hover;
-              })(f)
-              : config.clusterStyle.polygon.hover
+            var clusterStyle =
+              typeof config.clusterStyle == "function"
+                ? ((feature: any) => {
+                    if (!feature._clusterStyleCache) {
+                      feature._clusterStyleCache = {
+                        style: config.clusterStyle(olToGeoJSON(feature)),
+                      };
+                    }
+                    return feature._clusterStyleCache.style.polygon.hover;
+                  })(f)
+                : config.clusterStyle.polygon.hover;
             style = pathToOl(clusterStyle);
           } else {
             var style = defaultHighlightStyle;
@@ -652,12 +731,13 @@ if (typeof ol != "undefined") {
           f.setStyle(style);
         } else {
           //Check if it is a marker
-          if (f.get('@iot.id')) {
+          if (f.get("@iot.id")) {
             //Call function only once per marker
             if (last != f) {
               last = f;
               //Call callback
-              if (config.markerMouseOver) config.markerMouseOver(olToGeoJSON(f));
+              if (config.markerMouseOver)
+                config.markerMouseOver(olToGeoJSON(f));
             }
           }
         }
@@ -668,7 +748,7 @@ if (typeof ol != "undefined") {
       //Check if something was hovered over
       if (hit) {
         //Set cursor to pointer
-        this.getTargetElement().style.cursor = 'pointer';
+        this.getTargetElement().style.cursor = "pointer";
       } else {
         //Remove style from old selected
         if (selected) {
@@ -676,22 +756,23 @@ if (typeof ol != "undefined") {
           selected = null;
         }
         //Remove cursor style
-        this.getTargetElement().style.cursor = '';
+        this.getTargetElement().style.cursor = "";
       }
     });
 
-
     //Map onclick
-    olmap.on('click', function (evt: any) {
+    olmap.on("click", function (evt: any) {
       //Get the clicked feature
-      var feature = olmap.forEachFeatureAtPixel(evt.pixel,
+      var feature = olmap.forEachFeatureAtPixel(
+        evt.pixel,
         function (feature: any) {
           return feature;
-        });
+        }
+      );
       //Check if feature was clicked
       if (feature) {
         //Marker was clicked
-        if (feature.get('@iot.id') != undefined) {
+        if (feature.get("@iot.id") != undefined) {
           var geometry = feature.getGeometry();
 
           var close = function () {
@@ -700,17 +781,14 @@ if (typeof ol != "undefined") {
             }
             overlay.setPosition(undefined);
             closer.blur();
-            olmap.getView().fit(initialBounds, {size: olmap.getSize()});
+            olmap.getView().fit(initialBounds, { size: olmap.getSize() });
             return false;
           };
 
-          
-
           var content;
-          initialBounds = olmap.getView().calculateExtent()
+          initialBounds = olmap.getView().calculateExtent();
           //Check type
-          if (typeof config.markerClick == 'function') {
-
+          if (typeof config.markerClick == "function") {
             var geojsonFeature = olToGeoJSON(feature);
             //Add close function
             geojsonFeature.properties.closeMarker = close;
@@ -737,11 +815,15 @@ if (typeof ol != "undefined") {
           }
         } else {
           //Cluster was clicked
-          if (feature.get('count') != undefined) {
-            if (typeof config.clusterClick == 'function') {
+          if (feature.get("count") != undefined) {
+            if (typeof config.clusterClick == "function") {
               config?.clusterClick(olToGeoJSON(feature));
             } else {
-              olmap.getView().fit(feature.getGeometry().getExtent(), olmap.getSize(), { duration: 1000 });
+              olmap
+                .getView()
+                .fit(feature.getGeometry().getExtent(), olmap.getSize(), {
+                  duration: 1000,
+                });
             }
           }
         }
@@ -764,17 +846,17 @@ if (typeof ol != "undefined") {
   ol_ext_inherits(ol_layer_stam, ol.layer.Group);
 
   //Add the layer to ol.layer.STAM
-  ol.layer.STAM = ol_layer_stam
+  ol.layer.STAM = ol_layer_stam;
 }
 
 /**
- * Helper function, to set the background of an element to transparent, if nothing was set. 
+ * Helper function, to set the background of an element to transparent, if nothing was set.
  * This is necessary due to the behavior of leaflet, to set the background to the border color, if no fill color was set
  * @param configStyle The config to edit
  */
 function addTransparentBackground(configStyle: Path) {
   if (configStyle && !configStyle.fillColor) {
-    configStyle.fillColor = 'rgba(255,0,0,0.0)';
+    configStyle.fillColor = "rgba(255,0,0,0.0)";
   }
 }
 
@@ -783,135 +865,142 @@ function addTransparentBackground(configStyle: Path) {
  * @param content_element popup content element
  * @param feature GeoJSON feature that was clicked
  */
-function createDefaultPopup(content_element: HTMLElement, feature: any, config: Config) {
-  content_element.innerHTML = '<h3>' + feature.properties.name + '</h3>';
+function createDefaultPopup(
+  content_element: HTMLElement,
+  feature: any,
+  config: Config
+) {
+  content_element.innerHTML = "<h3>" + feature.properties.name + "</h3>";
 
-  var list = document.createElement('ul');
+  var list = document.createElement("ul");
 
   //Iterate all ObservedProperties
   feature.properties.getData.forEach(function (obj: any) {
-
     //Create new list element
-    var li = document.createElement('li');
+    var li = document.createElement("li");
     li.innerText = obj.observedProperty;
     //Set cursor style on hover
-    li.setAttribute('style', "cursor: pointer");
-    if (typeof Plotly != 'undefined') {
+    li.setAttribute("style", "cursor: pointer");
+    if (typeof Plotly != "undefined") {
       li.onclick = function () {
         //Create new popup
         picoModal({
-          width: '70%', content: '', modalId: 'pico-1'
-        }).beforeClose(function () {
-          Plotly.purge("pico-1");
-          //Remove pico-1 element from the DOM
-          document.getElementById("pico-1").remove();
-        }).afterShow(async function (modal: any) {
-          //Set overflow to hidden, so no scrollbar is shown
-          modal.modalElem().style.overflow = 'hidden';
-          //Set height to 50%
-          modal.modalElem().style.height = '50%';
+          width: "70%",
+          content: "",
+          modalId: "pico-1",
+        })
+          .beforeClose(function () {
+            Plotly.purge("pico-1");
+            //Remove pico-1 element from the DOM
+            document.getElementById("pico-1").remove();
+          })
+          .afterShow(async function (modal: any) {
+            //Set overflow to hidden, so no scrollbar is shown
+            modal.modalElem().style.overflow = "hidden";
+            //Set height to 50%
+            modal.modalElem().style.height = "50%";
 
-          //Create loader div
-          var loader = document.createElement('div');
-          //Set class to loader
-          loader.classList.add('loader');
+            //Create loader div
+            var loader = document.createElement("div");
+            //Set class to loader
+            loader.classList.add("loader");
 
-          //Add loader to modal
-          modal.modalElem().appendChild(loader);
+            //Add loader to modal
+            modal.modalElem().appendChild(loader);
 
-          var reverse: boolean = false;
-          //Get data
-          var result = await obj.getData(function (query: QueryObject) {
-            //Get the dataArray
-            query.resultFormat = 'dataArray';
-            query.orderby = 'phenomenonTime asc';
-            if (config.plot) {
-              var operator: string = 'gt';
-              //Check if offset is present
-              if (config.plot.offset) {
-                //Set top to the offset
-                query.top = Math.abs(config.plot.offset);
-                //Check if number is negative
-                if (Math.sign(config.plot.offset) == -1) {
-                  //Reverse array after getting the data, due to the orderby
-                  reverse = true;
-                  //Reverse order to get the last $top observations
-                  query.orderby = 'phenomenonTime desc';
-                  //Change operator to lower than
-                  operator = 'lt';
-                }
+            var reverse: boolean = false;
+            //Get data
+            var result = await obj.getData(function (query: QueryObject) {
+              //Get the dataArray
+              query.resultFormat = "dataArray";
+              query.orderby = "phenomenonTime asc";
+              if (config.plot) {
+                var operator: string = "gt";
+                //Check if offset is present
+                if (config.plot.offset) {
+                  //Set top to the offset
+                  query.top = Math.abs(config.plot.offset);
+                  //Check if number is negative
+                  if (Math.sign(config.plot.offset) == -1) {
+                    //Reverse array after getting the data, due to the orderby
+                    reverse = true;
+                    //Reverse order to get the last $top observations
+                    query.orderby = "phenomenonTime desc";
+                    //Change operator to lower than
+                    operator = "lt";
+                  }
 
-                //Add filter
-                query.filter = `phenomenonTime ${operator} ${config.plot.startDate.toISOString()}`;
-              } else {
-                //Check if end data is present
-                if (config.plot.endDate) {
-                  //Filter for startDate and endDate
-                  query.filter = `(phenomenonTime gt ${config.plot.startDate.toISOString()}) and (phenomenonTime lt ${config.plot.endDate.toISOString()})`;
+                  //Add filter
+                  query.filter = `phenomenonTime ${operator} ${config.plot.startDate.toISOString()}`;
+                } else {
+                  //Check if end data is present
+                  if (config.plot.endDate) {
+                    //Filter for startDate and endDate
+                    query.filter = `(phenomenonTime gt ${config.plot.startDate.toISOString()}) and (phenomenonTime lt ${config.plot.endDate.toISOString()})`;
+                  }
                 }
               }
-            }
-            return query;
-          });
-
-          //SHOW diagram
-
-          var x: any = [];
-          var y: any = [];
-
-          //Get datastream
-          var Datastream = result.value;
-
-          //Check if data was returned
-          if (Datastream.dataArray) {
-            //Reverse array if necessary
-            if (reverse) {
-              Datastream.dataArray = Datastream.dataArray.reverse();
-            }
-
-            Datastream.dataArray.forEach((Observation: any) => {
-              //Split data if a timespan was entered, and add both to the x array
-              if (Observation[1].indexOf('/') != -1) {
-                x.push(Observation[1].split('/')[0]);
-                x.push(Observation[1].split('/')[1]);
-
-                y.push(Observation[2]);
-              } else {
-                //Time is not a timespan
-                x.push(Observation[1]);
-              }
-              y.push(Observation[2]);
+              return query;
             });
-          }
 
-          //Create trace
-          var trace1 = {
-            x,
-            y,
-            type: 'scatter'
-          };
+            //SHOW diagram
 
-          var data: any = [trace1];
+            var x: any = [];
+            var y: any = [];
 
-          //Set both axis to autorange and add the unit as a title
-          var layout = {
-            xaxis: {
-              autorange: true
-            },
-            yaxis: {
-              autorange: true,
-              title: { text: result.unitOfMeasurement.name }
-            },
-            autosize: true
-          };
+            //Get datastream
+            var Datastream = result.value;
 
-          //Remove loader
-          loader.remove();
+            //Check if data was returned
+            if (Datastream.dataArray) {
+              //Reverse array if necessary
+              if (reverse) {
+                Datastream.dataArray = Datastream.dataArray.reverse();
+              }
 
-          //Add new plot
-          Plotly.newPlot('pico-1', data, layout, { responsive: true });
+              Datastream.dataArray.forEach((Observation: any) => {
+                //Split data if a timespan was entered, and add both to the x array
+                if (Observation[1].indexOf("/") != -1) {
+                  x.push(Observation[1].split("/")[0]);
+                  x.push(Observation[1].split("/")[1]);
 
-        }).show();
+                  y.push(Observation[2]);
+                } else {
+                  //Time is not a timespan
+                  x.push(Observation[1]);
+                }
+                y.push(Observation[2]);
+              });
+            }
+
+            //Create trace
+            var trace1 = {
+              x,
+              y,
+              type: "scatter",
+            };
+
+            var data: any = [trace1];
+
+            //Set both axis to autorange and add the unit as a title
+            var layout = {
+              xaxis: {
+                autorange: true,
+              },
+              yaxis: {
+                autorange: true,
+                title: { text: result.unitOfMeasurement.name },
+              },
+              autosize: true,
+            };
+
+            //Remove loader
+            loader.remove();
+
+            //Add new plot
+            Plotly.newPlot("pico-1", data, layout, { responsive: true });
+          })
+          .show();
       };
     }
     //Append to list
@@ -928,7 +1017,12 @@ function createDefaultPopup(content_element: HTMLElement, feature: any, config: 
  * @param zoom current zoom level
  * @returns a promise that resolves with an openLayers vectorLayer that contains the geoJson
  */
-function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config, map: any) {
+function addSTAMLayer(
+  mapInterface: MapInterface,
+  zoom: number,
+  config: Config,
+  map: any
+) {
   var bounds;
 
   //Check it the projection is EPSG 4326
@@ -939,8 +1033,16 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config, 
     var zw = olmap.getView().calculateExtent();
     var code = olmap.getView().getProjection().getCode();
     bounds = [];
-    bounds.push(...(new ol.geom.Point([zw[2], zw[3]])).transform(code, 'EPSG:4326').getCoordinates());
-    bounds.push(...(new ol.geom.Point([zw[0], zw[1]])).transform(code, 'EPSG:4326').getCoordinates());
+    bounds.push(
+      ...new ol.geom.Point([zw[2], zw[3]])
+        .transform(code, "EPSG:4326")
+        .getCoordinates()
+    );
+    bounds.push(
+      ...new ol.geom.Point([zw[0], zw[1]])
+        .transform(code, "EPSG:4326")
+        .getCoordinates()
+    );
   }
 
   mapInterface.getLayerData(zoom, bounds);
@@ -951,7 +1053,14 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, config: Config, 
  * @param feature ol feature
  */
 function olToGeoJSON(feature: any): any {
-  return { type: feature.getGeometry().getType(), properties: feature.getProperties(), geometry: { type: 'Point', coordinates: feature.getGeometry().getCoordinates() } };
+  return {
+    type: feature.getGeometry().getType(),
+    properties: feature.getProperties(),
+    geometry: {
+      type: "Point",
+      coordinates: feature.getGeometry().getCoordinates(),
+    },
+  };
 }
 
 /**
@@ -961,12 +1070,14 @@ function olToGeoJSON(feature: any): any {
 function pathToOl(path: Path) {
   return new ol.style.Style({
     stroke: new ol.style.Stroke({
-      color: colorWithAlpha(path?.color ?? 'red', path?.opacity),
-      width: path?.weight ?? 1
+      color: colorWithAlpha(path?.color ?? "red", path?.opacity),
+      width: path?.weight ?? 1,
     }),
     fill: new ol.style.Fill({
-      color: path?.fillColor ? colorWithAlpha(path?.fillColor, path?.fillOpacity) : 'rgba(0, 0, 0, 0)'
-    })
+      color: path?.fillColor
+        ? colorWithAlpha(path?.fillColor, path?.fillOpacity)
+        : "rgba(0, 0, 0, 0)",
+    }),
   });
 }
 
@@ -987,12 +1098,12 @@ function colorWithAlpha(color: any, alpha: any = 1) {
  * @param css Css string
  */
 function addCss(css: string) {
-  var head = document.head || document.getElementsByTagName('head')[0],
-    style: any = document.createElement('style');
+  var head = document.head || document.getElementsByTagName("head")[0],
+    style: any = document.createElement("style");
 
   head.appendChild(style);
 
-  style.type = 'text/css';
+  style.type = "text/css";
   if (style.styleSheet) {
     // This is required for IE8 and below.
     style.styleSheet.cssText = css;

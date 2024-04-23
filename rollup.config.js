@@ -1,44 +1,30 @@
-import babel from '@rollup/plugin-babel';
-import commonjs from '@rollup/plugin-commonjs';
-import json from '@rollup/plugin-json';
-import { nodeResolve } from '@rollup/plugin-node-resolve';
-import replace from '@rollup/plugin-replace';
-import fs from 'fs';
-import path from 'path';
-import cleanup from 'rollup-plugin-cleanup';
-import nodePolyfills from 'rollup-plugin-node-polyfills';
-import { terser } from "rollup-plugin-terser";
+import commonjs from "@rollup/plugin-commonjs";
+import json from "@rollup/plugin-json";
+import { nodeResolve } from "@rollup/plugin-node-resolve";
+import cleanup from "rollup-plugin-cleanup";
+import nodePolyfills from "rollup-plugin-node-polyfills";
+import { fileURLToPath } from "url";
+import typescript from "@rollup/plugin-typescript";
 
-
-const extensions = [
-    '.js', '.jsx', '.ts', '.tsx'
-];
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const extensions = [".js", ".jsx", ".ts", ".tsx"];
 
 export default {
-    input: './src/index.ts',
-    plugins: [
-        nodePolyfills(),
-        commonjs(),
-        nodeResolve({ preferBuiltins: true, extensions }),
-        json(),
-       /*  cleanup({
-            'comments': 'none'
-        }), */
-        replace({
-            'leaflet-realtime': () => `";${fs.readFileSync(path.join(__dirname, "node_modules/leaflet-realtime/dist/leaflet-realtime.js")).toString()}"`,
-            delimiters: ['', ''],
-            preventAssignment: true
-        }),
-        babel({
-            babelHelpers: 'inline',
-            extensions
-        }),
-        /* terser() */
-    ],
-    output: {
-        sourcemap: true,
-        file: './dist/stam.min.js',
-        format: 'umd',
-        name: 'bundle'
-    }
-}
+  input: "./src/index.ts",
+  plugins: [
+    nodePolyfills(),
+    commonjs(),
+    nodeResolve({ preferBuiltins: true, extensions }),
+    json(),
+    cleanup({
+      comments: "none",
+    }),
+    typescript(),
+  ],
+  output: {
+    sourcemap: true,
+    file: "./dist/stam.min.js",
+    format: "umd",
+    name: "bundle",
+  },
+};

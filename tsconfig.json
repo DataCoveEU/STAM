@@ -3,16 +3,13 @@
     "removeComments": true,
     "declaration": true,
     "declarationDir": "./dist",
-    "module": "es6",
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
     "noImplicitAny": true,
     "outDir": "./dist",
     "target": "es6",
-    "typeRoots": [
-      "node_modules/@types",
-      "node_modules/tsee/lib"
-    ]
+    "typeRoots": ["node_modules/@types", "node_modules/tsee/lib"],
+    "allowJs": true
   },
-  "include": [
-    "src/**/*", "rollup.config.js", "node_modules/*"
-  ]
+  "include": ["src/**/*", "rollup.config.js", "node_modules/*"]
 }
