@@ -10,7 +10,7 @@
   "publishConfig": {
     "access": "public",
     "branches": [
-      "master"
+      "main"
     ]
   },
   "scripts": {
