@@ -4,12 +4,12 @@
     "declaration": true,
     "declarationDir": "./dist",
     "module": "ESNext",
+    "moduleResolution": "bundler",
     "lib": ["ESNext", "DOM"],
     "noImplicitAny": true,
     "outDir": "./dist",
-    "target": "es6",
-    "typeRoots": ["node_modules/@types", "node_modules/tsee/lib"],
-    "allowJs": true
+    "target": "esnext",
+    "allowUmdGlobalAccess": true,
   },
-  "include": ["src/**/*", "rollup.config.js", "node_modules/*"]
+  "include": ["src/**/*", "@types/leaflet", "types/openlayers.d.ts"]
 }

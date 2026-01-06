@@ -1,5 +1,3 @@
-declare var L: any;
-
 var colorMarkers: any = null;
 
 if (typeof L != 'undefined') {
