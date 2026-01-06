@@ -3,16 +3,16 @@ if (typeof L !== "undefined") {
     options: {
       start: true,
       interval: 60 * 1000,
-      getFeatureId: function (f) {
+      getFeatureId: function (f: any) {
         return f.properties.id;
       },
-      updateFeature: function (feature, oldLayer) {
+      updateFeature: function (feature: any, oldLayer: any) {
         if (!oldLayer) {
           return;
         }
 
-        var type = feature.geometry && feature.geometry.type;
-        var coordinates = feature.geometry && feature.geometry.coordinates;
+        const type = feature.geometry && feature.geometry.type;
+        const coordinates = feature.geometry && feature.geometry.coordinates;
         switch (type) {
           case "Point":
             oldLayer.setLatLng(L.GeoJSON.coordsToLatLng(coordinates));
@@ -43,9 +43,9 @@ if (typeof L !== "undefined") {
       onlyRunWhenAdded: false,
     },
 
-    initialize: function (src, options) {
+    initialize: function (src: any, options: any) {
       L.setOptions(this, options);
-      this._container = options.container || L.geoJson(null, options);
+      this._container = options.container || L.geoJson(null as any, options);
 
       if (typeof src === "function") {
         this._src = src;
@@ -88,7 +88,7 @@ if (typeof L !== "undefined") {
       return this._timer;
     },
 
-    setUrl: function (url) {
+    setUrl: function (url: string) {
       if (this._fetchOptions) {
         this._fetchOptions.url = url;
         this.update();
@@ -97,22 +97,22 @@ if (typeof L !== "undefined") {
       }
     },
 
-    update: function (geojson) {
-      var requestCount = ++this._requestCount,
-        checkRequestCount = L.bind(function (cb) {
-          return L.bind(function () {
+    update: function (geojson: any) {
+      const requestCount = ++this._requestCount,
+        checkRequestCount = L.bind(function (this: any, cb: any) {
+          return L.bind(function (this: any) {
             if (requestCount === this._requestCount) {
               return cb.apply(this, arguments);
             }
           }, this);
-        }, this),
-        responseHandler,
+        }, this) as any;
+      let responseHandler,
         errorHandler;
 
       if (geojson) {
         this._onNewData(false, geojson);
       } else {
-        responseHandler = L.bind(function (data) {
+        responseHandler = L.bind(function (this: any, data: any) {
           this._onNewData(this.options.removeMissing, data);
         }, this);
         errorHandler = L.bind(this._onError, this);
@@ -126,18 +126,18 @@ if (typeof L !== "undefined") {
       return this;
     },
 
-    remove: function (geojson) {
+    remove: function (geojson: any) {
       if (typeof geojson === "undefined") {
         return L.Layer.prototype.remove.call(this);
       }
 
-      var features = L.Util.isArray(geojson)
-          ? geojson
-          : geojson.features
+      const features = L.Util.isArray(geojson)
+        ? geojson
+        : geojson.features
           ? geojson.features
           : [geojson],
-        exit = {},
-        i,
+        exit: any = {};
+      let i,
         len,
         fId;
 
@@ -159,16 +159,16 @@ if (typeof L !== "undefined") {
       return this;
     },
 
-    getLayer: function (featureId) {
+    getLayer: function (featureId: any) {
       return this._featureLayers[featureId];
     },
 
-    getFeature: function (featureId) {
+    getFeature: function (featureId: any) {
       return this._features[featureId];
     },
 
     getBounds: function () {
-      var container = this._container;
+      const container = this._container;
       if (container.getBounds) {
         return container.getBounds();
       }
@@ -176,14 +176,14 @@ if (typeof L !== "undefined") {
       throw new Error("Container has no getBounds method");
     },
 
-    onAdd: function (map) {
+    onAdd: function (map: any) {
       map.addLayer(this._container);
       if (this.options.start) {
         this.start();
       }
     },
 
-    onRemove: function (map) {
+    onRemove: function (map: any) {
       if (this.options.onlyRunWhenAdded) {
         this.stop();
       }
@@ -191,18 +191,18 @@ if (typeof L !== "undefined") {
       map.removeLayer(this._container);
     },
 
-    _onNewData: function (removeMissing, geojson) {
-      var layersToRemove = [],
-        enter = {},
-        update = {},
-        exit = {},
-        seenFeatures = {},
-        i,
+    _onNewData: function (removeMissing: boolean, geojson: any) {
+      const layersToRemove: any[] = [],
+        enter: any = {},
+        update: any = {},
+        seenFeatures: any = {};
+      let i,
         len,
-        feature;
+        feature,
+        exit: any = {};
 
-      var handleData = L.bind(function (geojson) {
-        var features = L.Util.isArray(geojson) ? geojson : geojson.features;
+      const handleData = L.bind(function (this: any, geojson: any) {
+        const features = L.Util.isArray(geojson) ? geojson : geojson.features;
         if (features) {
           for (i = 0, len = features.length; i < len; i++) {
             // only add this if geometry or geometries are set and not null
@@ -219,18 +219,18 @@ if (typeof L !== "undefined") {
           return;
         }
 
-        var container = this._container;
-        var options = this.options;
+        const container = this._container;
+        const options = this.options;
 
         if (options.filter && !options.filter(geojson)) {
           return;
         }
 
-        var f = L.GeoJSON.asFeature(geojson);
-        var fId = options.getFeatureId(f);
-        var oldLayer = this._featureLayers[fId];
+        const f = L.GeoJSON.asFeature(geojson);
+        const fId = options.getFeatureId(f);
+        const oldLayer = this._featureLayers[fId];
 
-        var layer = this.options.updateFeature(f, oldLayer);
+        let layer = this.options.updateFeature(f, oldLayer);
         if (!layer) {
           layer = L.GeoJSON.geometryToLayer(geojson, options);
           if (!layer) {
@@ -266,7 +266,7 @@ if (typeof L !== "undefined") {
 
         this._featureLayers[fId] = layer;
         this._features[fId] = seenFeatures[fId] = f;
-      }, this);
+      }, this) as any;
 
       handleData(geojson);
 
@@ -285,7 +285,7 @@ if (typeof L !== "undefined") {
       });
     },
 
-    _onError: function (err, msg) {
+    _onError: function (err: any, msg: any) {
       if (this.options.logErrors) {
         console.warn(err, msg);
       }
@@ -296,9 +296,9 @@ if (typeof L !== "undefined") {
       });
     },
 
-    _removeUnknown: function (known) {
-      var fId,
-        removed = {};
+    _removeUnknown: function (known: any) {
+      let fId,
+        removed: any = {};
       for (fId in this._featureLayers) {
         if (!known[fId]) {
           this._container.removeLayer(this._featureLayers[fId]);
@@ -311,13 +311,13 @@ if (typeof L !== "undefined") {
       return removed;
     },
 
-    _bustCache: function (url) {
+    _bustCache: function (url: string) {
       return url + L.Util.getParamString({ _: new Date().getTime() }, url);
     },
 
-    _defaultSource: function (responseHandler, errorHandler) {
-      var fetchOptions = this._fetchOptions,
-        url = fetchOptions.url;
+    _defaultSource: function (responseHandler: any, errorHandler: any) {
+      const fetchOptions = this._fetchOptions;
+      let url = fetchOptions.url;
 
       url = this.options.cache ? url : this._bustCache(url);
 
@@ -330,7 +330,7 @@ if (typeof L !== "undefined") {
     },
   });
 
-  L.realtime = function (src, options) {
+  L.realtime = function (src: any, options: any) {
     return new L.Realtime(src, options);
   };
 }

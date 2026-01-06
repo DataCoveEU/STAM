@@ -23,12 +23,12 @@
       }
     </style>
 
-    <script src="../dist/stam.min.js"></script>
   </head>
 
   <body>
     <div id="map" class="map"></div>
-    <script>
+    <script type="module">
+      import { STAM } from "../dist/stam-leaflet.js";
       var map2 = L.map("map", {
         preferCanvas: true,
       }).setView([50.27264, 7.26469], 8);
@@ -38,7 +38,7 @@
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map2);
 
-      L.stam({
+      STAM({
         //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
         //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
         //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",

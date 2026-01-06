@@ -1,5 +1,5 @@
-import { Config, QueryObject, Range, RangeQuery } from "./index";
-import { STAInterface } from "./STAInterface";
+import { Config, QueryObject, Range, RangeQuery } from "./types.js";
+import { STAInterface } from "./STAInterface.js";
 import { EventEmitter } from "events";
 
 declare var mqtt: any;

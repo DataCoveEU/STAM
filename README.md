@@ -27,12 +27,24 @@ STAM (SensorThings API Map) is a JavaScript library for showing the Things/Featu
 
 #### Integration with HTML
 
-Include the js file in a script tag. This will expose the variable L.stam or ol.layer.STAM depending on the used map libary.
+Include the js file in a script tag.
 
+For Leaflet:
 ```html
+<script type="module">
+  import { STAM } from 'https://unpkg.com/sta-map@latest/dist/stam-leaflet.js';
+  
+  // Use STAM({...})
+</script>
+```
 
-<script  src="https://unpkg.com/sta-map@latest/dist/stam.min.js"></script>
+For OpenLayers:
+```html
+<script type="module">
+  import { STAM } from 'https://unpkg.com/sta-map@latest/dist/stam-openlayers.js';
 
+  // Use new STAM({...})
+</script>
 ```
 
 ### Spatial Features
@@ -132,18 +144,6 @@ The config is used to specify the style and behaviour of the displayed content
 ```  
 
 ### Usage
-
-#### Leaflet
-
-```js
-L.stam(config)
-```
-
-#### OpenLayers
-
-```js
-new  ol.layer.STAM(config)
-```
 
 ### MQTT
 
