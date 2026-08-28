@@ -91,6 +91,7 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `clusterStyle`          | Circle and polygon styles for clusters, or a function returning them.                                                                    |
 | `fetchOptions`          | Options passed to `fetch` for SensorThings requests.                                                                                     |
 | `maxConcurrentRequests` | Maximum number of requests in flight at once. Defaults to 5.                                                                             |
+| `debounceDuration`      | Milliseconds the map has to be still before its data is requested. Defaults to 200.                                                      |
 | `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
 | `mqtt`                  | Enables MQTT updates when the browser MQTT client is available.                                                                          |
 | `map`                   | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
