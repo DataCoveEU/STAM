@@ -6,7 +6,9 @@ export default defineConfig({
         'stam-openlayers': 'src/openlayers.ts',
     },
     platform: 'browser',
-    external: ['leaflet', 'ol/*'],
+    deps: {
+        neverBundle: ['leaflet', 'ol/*'],
+    },
     sourcemap: true,
     //minify: true,
 })

@@ -1,10 +1,8 @@
 //@ts-ignore
 import picoModal from "picomodal";
 import type { Config, Path, QueryObject } from "./types.js";
-import type * as openlayers from "ol";
 
 declare var Plotly: any;
-declare var ol: typeof openlayers;
 
 
 /**
@@ -12,18 +10,12 @@ declare var ol: typeof openlayers;
  * @param css Css string
  */
 export function addCss(css: string) {
-  var head = document.head || document.getElementsByTagName("head")[0],
-    style: any = document.createElement("style");
+  const head = document.head;
+  const style = document.createElement("style");
 
   head.appendChild(style);
 
-  style.type = "text/css";
-  if (style.styleSheet) {
-    // This is required for IE8 and below.
-    style.styleSheet.cssText = css;
-  } else {
-    style.appendChild(document.createTextNode(css));
-  }
+  style.appendChild(document.createTextNode(css));
 }
 
 /**

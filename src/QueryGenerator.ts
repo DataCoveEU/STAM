@@ -16,9 +16,9 @@ export class QueryGenerator {
    * @param main defaults to true, used for specifying if the queries should be appended to the end or added inside the brackets
    * @returns link prefix
    */
-  toString(main: Boolean = true) {
-    var url: String = this.queryObject.entityType;
-    var prefix: Array<String> = [];
+  toString(main: boolean = true) {
+    let url = this.queryObject.entityType;
+    const prefix: string[] = [];
   
     // Adding id if present
     if (this.queryObject.id) {
@@ -36,7 +36,7 @@ export class QueryGenerator {
     }
 
 
-    for (var key in this.queryObject) {
+    for (const key in this.queryObject) {
       //Remove empty properties
       if ((!this.queryObject[key]) && this.queryObject[key] != 0) continue;
       //Select
@@ -58,7 +58,7 @@ export class QueryGenerator {
     }
 
     if(main && this.config.queryParameters){
-      prefix.push(...Object.entries(this.config.queryParameters).map<String>(e => `${e[0]}=${e[1]}`));
+      prefix.push(...Object.entries(this.config.queryParameters).map<string>(e => `${e[0]}=${e[1]}`));
     }
 
     //Check if a prefix is present
