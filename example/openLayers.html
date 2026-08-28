@@ -6,8 +6,8 @@
     <title>Document</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
-    <script src="https://cdn.jsdelivr.net/npm/ol@v10.7.0/dist/ol.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.7.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v10.10.0/dist/ol.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.10.0/ol.css">
     <style>
       .map {
         height: 800px;
@@ -23,7 +23,6 @@
       import { STAM } from "../dist/stam-openlayers.js";
 
       var map = new ol.Map({
-        renderers: ["Canvas", "VML"],
         layers: [
           new ol.layer.Tile({
             source: new ol.source.OSM(),
@@ -48,12 +47,7 @@
             return "yellow";
           },
           markerClick: (marker) => {
-            console.log(marker);
-            /* setTimeout(() => {
-              marker.properties.closeMarker();
-            }, 1000); */
             var s = "";
-            /* for (var i = 0; i < 2000; i++) s += "HI\n"; */
             return s;
           },
           cluster: true,
@@ -66,56 +60,6 @@
         })
       );
 
-      /*
-        {
-            baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
-            markerStyle: async (feature) => {
-                return "orange";
-            },
-            map,
-            markerClick: function (feature) {
-                //return `<span>${JSON.stringify(feature)}</span>`
-            },
-            clusterClick: function (f) {
-                console.log("CLUSTER", f)
-            },
-            cluster: true,
-            // cachingDuration: 10,
-            clusterMin: 5,
-            queryObject: [{
-                    zoomLevel: {
-                        from: 7,
-                        to: 15
-                    },
-                    query: {
-                        count: true,
-                        skip: 0,
-                        entityType: 'FeaturesOfInterest',
-                        // filter: "startswith(name,'Abzugsgraben')",
-                        select: null,
-
-                        top: 20000
-                    }
-                },
-                {
-                    zoomLevel: {
-                        from: 1,
-                        to: 6
-                    },
-                    query: {
-                        count: true,
-                        skip: 0,
-                        entityType: 'Things',
-                        filter: null,
-                        select: null,
-                        expand: null,
-                        top: 0
-                    }
-                }
-            ]
-        */
     </script>
   </body>
 </html>

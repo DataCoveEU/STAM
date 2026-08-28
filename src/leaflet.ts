@@ -2,7 +2,7 @@
 import { textToMarker } from "./leaflet/markers.js";
 import { MapInterface } from "./MapInterface.js";
 import "./leaflet/realtime.js";
-import type { Config, ClusterStyle, Path, Style } from "./types.js";
+import type { Config, ClusterStyle } from "./types.js";
 import { addCss, addTransparentBackground, createDefaultPopup } from "./utils.js";
 
 declare global {
@@ -288,11 +288,6 @@ const STAMLayer = L.LayerGroup.extend({
                     map.off("layeradd");
 
                     //Create a geojson layer
-                    /* geojsonLayer = L.geoJSON(null, {
-                       onEachFeature,
-                       pointToLayer,
-                       style: config.clusterStyle
-                     });*/
                     geojsonLayer = L.realtime(
                         function (resolve: any, reject: any) {
                             resolve(cache);
@@ -338,13 +333,6 @@ const STAMLayer = L.LayerGroup.extend({
                     "change",
                     function (this: any, geojson: any) {
                         if (geojson.zoom == zoom) {
-                            /*
-                          //Clear layer on change
-                          geojsonLayer.clearLayers();
-                          //Add the new data
-                          geojsonLayer.addData(geojson);
-                          //Force cluster layer clearing
-                          clearCluster = true;*/
                             cache = geojson;
                         }
                     }.bind(this)

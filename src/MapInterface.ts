@@ -243,7 +243,7 @@ export class MapInterface extends EventEmitter {
           }`,
         ],
         function (err: any, granted: any) {
-          console.log(granted);
+          if (err) console.error("Failed to subscribe to MQTT updates", err);
         }
       );
     }

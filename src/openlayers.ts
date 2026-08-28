@@ -1,6 +1,9 @@
 import { MapInterface } from "./MapInterface.js";
 import type { Config, Path, ClusterStyle } from "./types.js";
 import { addCss, createDefaultPopup } from "./utils.js";
+import type Map from "ol/Map.js";
+import type VectorLayer from "ol/layer/Vector.js";
+import type VectorSource from "ol/source/Vector.js";
 
 declare global {
     var ol: {
@@ -25,41 +28,32 @@ addCss(
     `.ol-popup{position:absolute;min-width:180px;background-color:#fff;-webkit-filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));padding:15px;border-radius:10px;border:1px solid #ccc;bottom:40px;left:-50px}.ol-popup:after,.ol-popup:before{top:100%;border:solid transparent;content:" ";height:0;width:0;position:absolute;pointer-events:none}.ol-popup:after{border-top-color:#fff;border-width:10px;left:48px;margin-left:-10px}.ol-popup:before{border-top-color:#ccc;border-width:11px;left:48px;margin-left:-11px}.ol-popup-closer{text-decoration:none;position:absolute;top:2px;right:8px}.ol-popup-closer:after{content:"✖"}`
 );
 
-//Since ol 6 ol.inherits was removed
-/* var ol_ext_inherits = function (child: any, parent: any) {
-    child.prototype = Object.create(parent.prototype);
-    child.prototype.constructor = child;
-}; */
-
 var zoom: any;
-
-var olmap: any;
 
 class STAM extends ol.layer.Group {
     constructor(config: Config) {
         super();
-        const olmap = config.map;
-
-
-        console.log(olmap)
+        const olmap = config.map as Map;
        
         //Get current zoom level and remove all decimal places
-        zoom = olmap.getView().getZoom().toFixed(0);
+        zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
 
         var mapInterface = new MapInterface(config);
 
         var clearCircles: boolean = false;
 
-        var circleLayer: any = new ol.layer.Vector({ source: new ol.source.Vector() });
+        const circleSource = new ol.source.Vector();
+        const circleLayer: VectorLayer<VectorSource> = new ol.layer.Vector({ source: circleSource });
 
         //Create the vectorLayer with the geojson vector source
-        var vectorLayer: any = new ol.layer.Vector({
-            source: new ol.source.Vector(),
+        const vectorSource = new ol.source.Vector();
+        const vectorLayer: VectorLayer<VectorSource> = new ol.layer.Vector({
+            source: vectorSource,
             // features,
             style: function (feature: any) {
                 if (clearCircles) {
                     clearCircles = false;
-                    circleLayer.getSource().clear();
+                    circleSource.clear();
                 }
                 //Check the feature type
                 if (feature.getGeometry().getType() == "Point") {
@@ -167,7 +161,7 @@ class STAM extends ol.layer.Group {
                         }
 
                         //Add circle to circle layer
-                        circleLayer.getSource().addFeature(circle);
+                        circleSource.addFeature(circle);
                     }
 
                     //Use config style if preset
@@ -200,13 +194,13 @@ class STAM extends ol.layer.Group {
         mapInterface.on("change", (geoJson: any) => {
             if (geoJson.zoom == zoom) {
                 //Clear the geojson layer
-                vectorLayer.getSource().clear();
+                vectorSource.clear();
 
                 //Force circle layer clear
                 clearCircles = true;
 
                 //Create the geojson and add it to the source
-                vectorLayer.getSource().addFeatures(format.readFeatures(geoJson));
+                vectorSource.addFeatures(format.readFeatures(geoJson));
             }
         });
 
@@ -382,7 +376,8 @@ class STAM extends ol.layer.Group {
                         } else {
                             olmap
                                 .getView()
-                                .fit(feature.getGeometry().getExtent(), olmap.getSize(), {
+                                .fit(feature.getGeometry().getExtent(), {
+                                    size: olmap.getSize(),
                                     duration: 1000,
                                 });
                         }
@@ -395,7 +390,7 @@ class STAM extends ol.layer.Group {
         olmap.on("moveend", function () {
             //Check if zoom level was changed
             if (zoom != olmap.getView().getZoom()) {
-                zoom = olmap.getView().getZoom().toFixed(0);
+                zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
             }
 
             //always add new layer, because the geojson is cached inside MapInterface.ts
@@ -404,9 +399,6 @@ class STAM extends ol.layer.Group {
     }
 }
 
-
-//Inherit the layer group from openLayers
-//ol_ext_inherits((ol_layer_stam as any), ol.layer.Group);
 
 export { STAM };
 
