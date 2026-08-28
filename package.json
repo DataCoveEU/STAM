@@ -13,6 +13,7 @@
     "./openlayers": "./dist/stam-openlayers.js"
   },
   "type": "module",
+  "packageManager": "pnpm@12.0.0",
   "directories": {
     "doc": "docs"
   },
