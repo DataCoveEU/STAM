@@ -244,6 +244,58 @@ export class MapInterface extends EventEmitter {
   }
 
   /**
+   * The query of another zoom level, without moving the zoom the MQTT updates are emitted for
+   * @returns the query, or undefined if that zoom level has none
+   */
+  private queryOf(zoom: number): QueryObject | undefined {
+    const current = this.lastZoom;
+    try {
+      return this.getQuery(zoom);
+    } catch {
+      return undefined;
+    } finally {
+      this.lastZoom = current;
+    }
+  }
+
+  /**
+   * A tile above this one may have fetched every entity it contains, which makes this tile's
+   * entities already known
+   * @returns the entities inside this tile, or undefined if no tile above it was fully fetched
+   */
+  private markersOfFetchedTile(x: number, y: number, zoom: number): Array<any> | undefined {
+    const query = JSON.stringify(this.queryOf(zoom));
+
+    //Every tile above this one covers it completely
+    for (var level = zoom - 1, tileX = x >> 1, tileY = y >> 1; level >= 0; level--) {
+      const cached = this.getCached(level).features;
+      const tile = {
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: this.tileRing(tileX, tileY, level) },
+      };
+
+      const fetched = cached.find(
+        (feature: any) => feature.properties?.fetched && compare_features(tile, feature),
+      );
+
+      if (fetched) {
+        //A zoom level can be configured with another query, its entities are not the ones asked for
+        if (JSON.stringify(this.queryOf(level)) != query) return undefined;
+
+        const ring = this.tileRing(x, y, zoom)[0];
+        return cached.filter(
+          (feature: any) => feature.properties?.count == undefined && inside(feature, ring),
+        );
+      }
+
+      tileX >>= 1;
+      tileY >>= 1;
+    }
+
+    return undefined;
+  }
+
+  /**
    * Get a QueryObject based on the current zoom level
    * @param zoom Zoom level
    */
@@ -390,13 +442,26 @@ export class MapInterface extends EventEmitter {
           return compare_features(feature, feature2);
         });
 
+        //Zooming in: a tile above may have fetched everything this tile contains
+        const FETCHED = this.clusterEnabled ? this.markersOfFetchedTile(x, y, zoom) : undefined;
+
         //Zooming out: the tiles this one was split into may still hold their counts
-        const CACHEDCOUNT = this.clusterEnabled ? this.countFromCachedTiles(x, y, zoom) : undefined;
+        const CACHEDCOUNT =
+          FETCHED || !this.clusterEnabled ? undefined : this.countFromCachedTiles(x, y, zoom);
 
         //Check if polygon is cached
         if (!existing) {
           promises.push(
             (async () => {
+              //Everything inside this tile is already known, neither count nor entities are requested
+              if (FETCHED) {
+                feature.properties.count = FETCHED.length;
+                (feature.properties as any).fetched = true;
+                this.addToCache(zoom, feature, false);
+                for (const marker of FETCHED) this.addToCache(zoom, marker);
+                return;
+              }
+
               //Check if clustering is enabled
               if (this.clusterEnabled && CACHEDCOUNT == undefined) {
                 //Get count for the polygon
@@ -428,6 +493,8 @@ export class MapInterface extends EventEmitter {
               //Load this polygon's markers right away, instead of waiting for the other polygons
               if (feature.properties.count < this.clusterMin || !this.clusterEnabled) {
                 await this.getMarkers([feature.geometry.coordinates], zoom);
+                //The count told us this is all of them, so deeper zoom levels can reuse them
+                if (this.clusterEnabled) (feature.properties as any).fetched = true;
               }
             })(),
           );
@@ -706,6 +773,25 @@ export class MapInterface extends EventEmitter {
  * @param f2 feature to be compared
  * @returns true if the features are the same
  */
+/**
+ * Whether a feature sits inside the ring of a tile. Locations are points, so their first
+ * coordinate is the one to look at
+ */
+function inside(feature: any, ring: Array<Array<number>>): boolean {
+  const [lng, lat] = feature.geometry?.coordinates?.flat(3) ?? [];
+  if (lng == undefined || lat == undefined) return false;
+
+  const lngs = ring.map((coordinate) => coordinate[0]);
+  const lats = ring.map((coordinate) => coordinate[1]);
+
+  return (
+    lng >= Math.min(...lngs) &&
+    lng <= Math.max(...lngs) &&
+    lat >= Math.min(...lats) &&
+    lat <= Math.max(...lats)
+  );
+}
+
 function compare_features(f1: any, f2: any): boolean {
   //Check if the type is the same
   if (f1.type != f2.type) return false;

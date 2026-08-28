@@ -160,4 +160,43 @@ describe("MapInterface", () => {
     );
     expect(outside).toEqual([]);
   });
+
+  it("reuses the entities of a fetched tile instead of requesting them again", async () => {
+    const requests: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+      const link = decodeURIComponent(String(url));
+      requests.push(link);
+
+      if (link.includes("$count=true")) {
+        return new Response(JSON.stringify({ value: [], "@iot.count": 1 }));
+      }
+      return new Response(
+        JSON.stringify({
+          value: [
+            {
+              "@iot.id": 1,
+              name: "station",
+              Locations: [{ location: { type: "Point", coordinates: [7.205, 50.205] } }],
+              Datastreams: [],
+            },
+          ],
+        }),
+      );
+    });
+
+    //A high clusterMin makes every tile fetch its entities
+    const mapInterface = new MapInterface({ ...config, clusterMin: 100 }) as any;
+    await mapInterface.loadLayerData(12, boundingBox);
+    expect(requests.length).toBeGreaterThan(0);
+
+    //Zooming in is served from the tiles that were fetched
+    requests.length = 0;
+    await mapInterface.loadLayerData(13, boundingBox);
+
+    expect(requests).toEqual([]);
+    const markers = mapInterface
+      .getCached(13)
+      .features.filter((feature: any) => feature.properties?.["@iot.id"] != undefined);
+    expect(markers.length).toBeGreaterThan(0);
+  });
 });
