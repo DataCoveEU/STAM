@@ -684,7 +684,7 @@ export class MapInterface extends EventEmitter {
       //Add the function, with the id as the key
       marker.getData.push({
         observedProperty: datastream.ObservedProperty.name,
-        getData: function (this: MapInterface, configureQuery: Function) {
+        getData: async (configureQuery: Function) => {
           //Add query
           var datastreamQuery = {
             entityType: "Datastreams",
@@ -693,14 +693,13 @@ export class MapInterface extends EventEmitter {
           } as QueryObject;
           //Use the return value of the callback function
           datastreamQuery = configureQuery(datastreamQuery);
-          return new Promise(async (resolve, reject) => {
-            //Get the data
-            var data: any = await this.api.getGeoJson(datastreamQuery);
-            //Add unit to the data object
-            data.unitOfMeasurement = unitOfMeasurement;
-            resolve(data);
-          });
-        }.bind(this),
+
+          //Get the data
+          const data = await this.api.getGeoJson(datastreamQuery);
+          //Add unit to the data object
+          data.unitOfMeasurement = unitOfMeasurement;
+          return data;
+        },
       });
     }
   }
