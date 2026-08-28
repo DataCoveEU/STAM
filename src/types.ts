@@ -113,6 +113,8 @@ export interface Config {
   map?: any;
   /** Options passed to `fetch` for every SensorThings request. */
   fetchOptions?: RequestInit;
+  /** Maximum number of requests in flight at once. Defaults to `5`. */
+  maxConcurrentRequests?: number;
   /** Additional query parameters appended to every generated request URL. */
   queryParameters?: Map<string, string>;
 }

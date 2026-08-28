@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { STAInterface } from "../src/STAInterface.js";
-import type { Config, QueryObject } from "../src/types.js";
+import { STAInterface } from "../src/STAInterface";
+import type { Config, QueryObject } from "../src/types";
 
 const config: Config = {
   baseUrl: "https://sensor.example/v1.1",
@@ -38,7 +38,31 @@ describe("STAInterface", () => {
       "https://sensor.example/v1.1/Things?$top=3",
       undefined,
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://sensor.example/v1.1/Things?$skip=2");
+    //The next link is requested without the configured fetch options
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://sensor.example/v1.1/Things?$skip=2",
+      undefined,
+    );
+  });
+
+  it("never exceeds the configured request concurrency", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight--;
+      return new Response(JSON.stringify({ value: [{ id: 1 }] }));
+    });
+
+    const api = new STAInterface({ ...config, maxConcurrentRequests: 2 });
+    await Promise.all(
+      Array.from({ length: 10 }, (_, id) => api.getGeoJson({ entityType: "Things", id })),
+    );
+
+    expect(peak).toBe(2);
   });
 
   it("merges dataArray pages", async () => {

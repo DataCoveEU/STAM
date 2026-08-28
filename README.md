@@ -78,21 +78,22 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 
 ## Configuration
 
-| Option            | Description                                                                                                                              |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `baseUrl`         | Base URL of the SensorThings API service.                                                                                                |
-| `queryObject`     | A query object or zoom-based array of `{ zoomLevel, query }` entries. Supported entity types are `Things` and `FeaturesOfInterest`.      |
-| `cluster`         | Enables clustering. Defaults to enabled when omitted.                                                                                    |
-| `clusterMin`      | Minimum feature count for a cluster to remain displayed.                                                                                 |
-| `cachingDuration` | Cache lifetime in seconds. A falsy value keeps cached data indefinitely.                                                                 |
-| `plot`            | Observation range used by the default popup: `{ startDate, offset?, endDate? }`.                                                         |
-| `markerStyle`     | Marker color string or function. Supported colors are `green`, `black`, `blue`, `grey`, `violet`, `orange`, `red`, `yellow`, and `gold`. |
-| `polygonStyle`    | Style for non-point spatial features.                                                                                                    |
-| `clusterStyle`    | Circle and polygon styles for clusters, or a function returning them.                                                                    |
-| `fetchOptions`    | Options passed to `fetch` for SensorThings requests.                                                                                     |
-| `queryParameters` | `Map<string, string>` appended to every generated request URL.                                                                           |
-| `mqtt`            | Enables MQTT updates when the browser MQTT client is available.                                                                          |
-| `map`             | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
+| Option                  | Description                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`               | Base URL of the SensorThings API service.                                                                                                |
+| `queryObject`           | A query object or zoom-based array of `{ zoomLevel, query }` entries. Supported entity types are `Things` and `FeaturesOfInterest`.      |
+| `cluster`               | Enables clustering. Defaults to enabled when omitted.                                                                                    |
+| `clusterMin`            | Minimum feature count for a cluster to remain displayed.                                                                                 |
+| `cachingDuration`       | Cache lifetime in seconds. A falsy value keeps cached data indefinitely.                                                                 |
+| `plot`                  | Observation range used by the default popup: `{ startDate, offset?, endDate? }`.                                                         |
+| `markerStyle`           | Marker color string or function. Supported colors are `green`, `black`, `blue`, `grey`, `violet`, `orange`, `red`, `yellow`, and `gold`. |
+| `polygonStyle`          | Style for non-point spatial features.                                                                                                    |
+| `clusterStyle`          | Circle and polygon styles for clusters, or a function returning them.                                                                    |
+| `fetchOptions`          | Options passed to `fetch` for SensorThings requests.                                                                                     |
+| `maxConcurrentRequests` | Maximum number of requests in flight at once. Defaults to 5.                                                                             |
+| `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
+| `mqtt`                  | Enables MQTT updates when the browser MQTT client is available.                                                                          |
+| `map`                   | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
 
 Callbacks are available for marker and cluster hover/click events, and for popup close events. A `markerClick` callback may return HTML for the popup. The default popup can request observations through the feature's generated data callbacks:
 

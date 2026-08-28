@@ -1,9 +1,9 @@
 // @ts-ignore
-import { textToMarker } from "./leaflet/markers.js";
-import { MapInterface } from "./MapInterface.js";
-import "./leaflet/realtime.js";
-import type { Config, ClusterStyle } from "./types.js";
-import { addCss, addTransparentBackground, createDefaultPopup } from "./utils.js";
+import { textToMarker } from "./leaflet/markers";
+import { MapInterface } from "./MapInterface";
+import "./leaflet/realtime";
+import type { Config, ClusterStyle } from "./types";
+import { addCss, addTransparentBackground, createDefaultPopup } from "./utils";
 
 declare global {
   namespace L {

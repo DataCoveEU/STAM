@@ -1,6 +1,6 @@
 //@ts-ignore
 import picoModal from "picomodal";
-import type { Config, Path, QueryObject } from "./types.js";
+import type { Config, Path, QueryObject } from "./types";
 
 declare var Plotly: any;
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { QueryGenerator } from "../src/QueryGenerator.js";
-import type { Config, QueryObject } from "../src/types.js";
+import { QueryGenerator } from "../src/QueryGenerator";
+import type { Config, QueryObject } from "../src/types";
 
 //A minimal configuration: only baseUrl and queryObject are required
 const config = (queryParameters?: Map<string, string>): Config => ({
