@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { QueryGenerator } from "../src/QueryGenerator.js";
 import type { Config, QueryObject } from "../src/types.js";
 
-const config = (queryParameters?: Map<string, string>) => ({ queryParameters }) as Config;
+//A minimal configuration: only baseUrl and queryObject are required
+const config = (queryParameters?: Map<string, string>): Config => ({
+  baseUrl: "https://sensor.example/v1.1",
+  queryObject: { entityType: "Things" },
+  queryParameters,
+});
 
 describe("QueryGenerator", () => {
   it("creates a collection query with filters and selected fields", () => {

@@ -3,6 +3,10 @@ import { STAInterface } from "./STAInterface.js";
 import { EventEmitter } from "events";
 
 declare var mqtt: any;
+
+//Used when the config does not specify a minimum cluster size
+const DEFAULT_CLUSTER_MIN = 5;
+
 export class MapInterface extends EventEmitter {
   config: Config;
   api: STAInterface;
@@ -11,6 +15,16 @@ export class MapInterface extends EventEmitter {
 
   //Stores the cached geojson
   cache: Array<CacheObject>;
+
+  //Clustering is enabled unless it was explicitly disabled
+  private get clusterEnabled(): boolean {
+    return this.config.cluster ?? true;
+  }
+
+  private get clusterMin(): number {
+    return this.config.clusterMin ?? DEFAULT_CLUSTER_MIN;
+  }
+
   constructor(config: Config) {
     super();
     this.cache = [];
@@ -335,7 +349,7 @@ export class MapInterface extends EventEmitter {
           promises.push(
             new Promise(async (resolve, reject) => {
               //Check if clustering is enabled
-              if (this.config.cluster || this.config.cluster == undefined) {
+              if (this.clusterEnabled) {
                 //Get count for the polygon
                 var data: any;
                 try {
@@ -373,7 +387,7 @@ export class MapInterface extends EventEmitter {
     //Iterate all polygons
     recs.forEach((feature: any) => {
       //Check if markers should be loaded
-      if (feature.properties.count < this.config.clusterMin || this.config.cluster == false) {
+      if (feature.properties.count < this.clusterMin || !this.clusterEnabled) {
         toMarker.push(feature.geometry.coordinates);
       }
     });
@@ -585,11 +599,12 @@ export class MapInterface extends EventEmitter {
    */
   getCached(zoom: number) {
     if (this.config.cachingDuration) {
+      const cachingDuration = this.config.cachingDuration;
       this.cache = this.cache.filter((cache: CacheObject) => {
         //Clone date
         var date = new Date(cache.timestamp);
         //Add caching time
-        date.setSeconds(cache.timestamp.getSeconds() + this.config.cachingDuration);
+        date.setSeconds(cache.timestamp.getSeconds() + cachingDuration);
         //Check if date should be removed
         return date > new Date();
       });
@@ -631,10 +646,10 @@ export class MapInterface extends EventEmitter {
       if (feature.properties?.count == undefined) return true;
 
       //Check if clustering is disabled
-      if (this.config.cluster == false) return feature.properties?.count == undefined;
+      if (!this.clusterEnabled) return feature.properties?.count == undefined;
 
       //Return only the polygons with a higher count as specified
-      return feature.properties?.count >= this.config.clusterMin;
+      return feature.properties?.count >= this.clusterMin;
     });
     this.emit("change", toReturn);
   }

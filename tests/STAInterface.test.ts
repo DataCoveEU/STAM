@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { STAInterface } from "../src/STAInterface.js";
 import type { Config, QueryObject } from "../src/types.js";
 
-const config = { baseUrl: "https://sensor.example/v1.1" } as Config;
+const config: Config = {
+  baseUrl: "https://sensor.example/v1.1",
+  queryObject: { entityType: "Things" },
+};
 
 afterEach(() => {
   vi.restoreAllMocks();
