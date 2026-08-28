@@ -5,6 +5,10 @@ on:
       - main
   pull_request:
 
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
 jobs:
   test-and-release:
     name: Run tests and release
@@ -16,7 +20,7 @@ jobs:
       - uses: pnpm/setup@v1
         name: Install Node.js and pnpm
         with:
-          cache: true
+          cache: github.ref != 'refs/heads/main'
           install: false
 
       - name: Install dependencies
