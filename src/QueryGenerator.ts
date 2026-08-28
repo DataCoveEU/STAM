@@ -41,19 +41,19 @@ export class QueryGenerator {
       if ((!this.queryObject[key]) && this.queryObject[key] != 0) continue;
       //Select
       if (key == 'select') {
-        prefix.push(`$select=${this.queryObject.select.join(',')}`);
+        prefix.push(`$select=${this.queryObject.select!.join(',')}`);
         continue;
       }
       //Expand
       if (key == 'expand') {
-        prefix.push(`$expand=${this.queryObject.expand.map<String>((queryObject) => {
+        prefix.push(`$expand=${this.queryObject.expand!.map<String>((queryObject) => {
           return new QueryGenerator(queryObject,this.config).toString(false);
         }).join(',')}`);
         continue;
       }
       //Every other property
       if (key != 'entityType' && key != 'pathSuffix') {
-        prefix.push(`$${key}=${this.queryObject[key].toString()}`)
+        prefix.push(`$${key}=${this.queryObject[key]!.toString()}`)
       }
     }
 

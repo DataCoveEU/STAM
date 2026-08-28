@@ -27,7 +27,7 @@ export class MapInterface extends EventEmitter {
       //Receive updates from server
       this.client.on(
         "message",
-        function (topic: any, message: any) {
+        function (this: MapInterface, topic: any, message: any) {
           // parse message
           var marker = JSON.parse(message.toString());
           var geoJson: any;
@@ -575,7 +575,7 @@ export class MapInterface extends EventEmitter {
       //Add the function, with the id as the key
       marker.getData.push({
         observedProperty: datastream.ObservedProperty.name,
-        getData: function (configureQuery: Function) {
+        getData: function (this: MapInterface, configureQuery: Function) {
           //Add query
           var datastreamQuery = {
             entityType: "Datastreams",
@@ -586,7 +586,7 @@ export class MapInterface extends EventEmitter {
           datastreamQuery = configureQuery(datastreamQuery);
           return new Promise(async (resolve, reject) => {
             //Get the data
-            var data = await this.api.getGeoJson(datastreamQuery);
+            var data: any = await this.api.getGeoJson(datastreamQuery);
             //Add unit to the data object
             data.unitOfMeasurement = unitOfMeasurement;
             resolve(data);
@@ -603,7 +603,7 @@ export class MapInterface extends EventEmitter {
   getCached(zoom: number) {
     if (this.config.cachingDuration) {
       this.cache = this.cache.filter(
-        function (cache: CacheObject) {
+        (cache: CacheObject) => {
           //Clone date
           var date = new Date(cache.timestamp);
           //Add caching time
@@ -612,7 +612,7 @@ export class MapInterface extends EventEmitter {
           );
           //Check if date should be removed
           return date > new Date();
-        }.bind(this)
+        }
       );
     }
     var toReturn: any = {

@@ -38,6 +38,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+      - name: Run typecheck
+        run: pnpm typecheck
       - name: Run build
         run: pnpm build
       - name: Release

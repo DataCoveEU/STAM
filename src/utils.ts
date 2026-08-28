@@ -70,7 +70,7 @@ export function createDefaultPopup(
           .beforeClose(function () {
             Plotly.purge("pico-1");
             //Remove pico-1 element from the DOM
-            document.getElementById("pico-1").remove();
+            document.getElementById("pico-1")?.remove();
           })
           .afterShow(async function (modal: any) {
             //Set overflow to hidden, so no scrollbar is shown
