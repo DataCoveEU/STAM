@@ -30,6 +30,19 @@ addCss(
 
 var zoom: any;
 
+//Marker image for a color name
+function markerStyle(color: string) {
+  return new ol.style.Style({
+    image: new ol.style.Icon({
+      anchor: [0.5, 1],
+      scale: 0.5,
+      anchorXUnits: "fraction",
+      anchorYUnits: "fraction",
+      src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+    }),
+  });
+}
+
 class STAM extends ol.layer.Group {
   constructor(config: Config) {
     super();
@@ -57,47 +70,21 @@ class STAM extends ol.layer.Group {
         }
         //Check the feature type
         if (feature.getGeometry().getType() == "Point") {
-          //Check if it is a async function
-          if (
-            typeof config.markerStyle == "function" &&
-            config.markerStyle.constructor.name === "AsyncFunction"
-          ) {
-            //Get the color an set the style
-            (config.markerStyle as Function)(olToGeoJSON(feature)).then((color: string) => {
-              feature.setStyle(
-                new ol.style.Style({
-                  image: new ol.style.Icon({
-                    anchor: [0.5, 1],
-                    scale: 0.5,
-                    anchorXUnits: "fraction",
-                    anchorYUnits: "fraction",
-                    //Call function if present, with the feature, if not use the color name if present. Default is blue
-                    src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
-                  }),
-                }),
-              );
-            });
+          //Call the function if present, otherwise use the color name if present. Default is blue
+          const color =
+            typeof config.markerStyle == "function"
+              ? config.markerStyle(olToGeoJSON(feature))
+              : config.markerStyle || "blue";
+
+          //A style function may return the color directly or as a promise
+          if (color instanceof Promise) {
+            //Set the style once the color resolves
+            color.then((resolved: string) => feature.setStyle(markerStyle(resolved)));
             return undefined;
           }
-          //Add the marker image
-          var style = new ol.style.Style({
-            image: new ol.style.Icon({
-              anchor: [0.5, 1],
-              scale: 0.5,
-              anchorXUnits: "fraction",
-              anchorYUnits: "fraction",
-              //Call function if present, with the feature, if not use the color name if present. Default is blue
-              src: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${
-                typeof config.markerStyle == "function"
-                  ? (config.markerStyle as Function)(olToGeoJSON(feature))
-                  : config.markerStyle
-                    ? config.markerStyle
-                    : "blue"
-              }.png`,
-            }),
-          });
 
-          return style;
+          //Add the marker image
+          return markerStyle(color);
         } else {
           //Get extends of cluster
           const cords = feature.getGeometry().getExtent();
@@ -350,8 +337,10 @@ class STAM extends ol.layer.Group {
           //If no content, just insert the default content
           if (!content) {
             createDefaultPopup(content_element, olToGeoJSON(feature), config);
-          } else {
+          } else if (typeof content == "string") {
             content_element.innerHTML = content;
+          } else {
+            content_element.replaceChildren(content);
           }
 
           if (geometry.getType() == "Point") {

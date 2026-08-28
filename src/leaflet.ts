@@ -218,29 +218,25 @@ const STAMLayer = L.LayerGroup.extend({
 
         //Used for marker styling
         const pointToLayer = function (feature: any, latlng: any) {
-          //Check if style function is async
-          if (
-            typeof config.markerStyle == "function" &&
-            config.markerStyle.constructor.name === "AsyncFunction"
-          ) {
-            const marker = L.marker(latlng);
-            //Add marker to layerGroup when done
-            (config.markerStyle as Function)(feature).then((color: string) => {
-              marker.setIcon(textToMarker(color));
-            });
-            return marker;
-          } else {
-            //Marker coloring
-            const marker = L.marker(latlng, {
-              icon:
-                typeof config.markerStyle == "function"
-                  ? textToMarker(config.markerStyle(feature))
-                  : typeof config.markerStyle == "string"
-                    ? textToMarker(config.markerStyle)
-                    : new L.Icon.Default(),
-            });
-            return marker;
+          if (typeof config.markerStyle == "function") {
+            const color = config.markerStyle(feature);
+            //A style function may return the color directly or as a promise
+            if (color instanceof Promise) {
+              const marker = L.marker(latlng);
+              //Set the icon once the color resolves
+              color.then((resolved: string) => marker.setIcon(textToMarker(resolved)));
+              return marker;
+            }
+            return L.marker(latlng, { icon: textToMarker(color) });
           }
+
+          //Marker coloring
+          return L.marker(latlng, {
+            icon:
+              typeof config.markerStyle == "string"
+                ? textToMarker(config.markerStyle)
+                : new L.Icon.Default(),
+          });
         };
 
         // The polygonStyle should only be applied to Locations for Features from the STA service
