@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { QueryGenerator } from "../src/QueryGenerator.js";
 import type { Config, QueryObject } from "../src/types.js";
 
-const config = (queryParameters?: Map<string, string>) =>
-  ({ queryParameters } as Config);
+const config = (queryParameters?: Map<string, string>) => ({ queryParameters }) as Config;
 
 describe("QueryGenerator", () => {
   it("creates a collection query with filters and selected fields", () => {
@@ -34,11 +33,14 @@ describe("QueryGenerator", () => {
     expect(
       new QueryGenerator(
         query,
-        config(new Map([["$count", "true"], ["token", "abc"]])),
+        config(
+          new Map([
+            ["count", "true"],
+            ["token", "abc"],
+          ]),
+        ),
       ).toString(),
-    ).toBe(
-      "Things(7)?$expand=Locations($select=id,location)&$count=true&token=abc",
-    );
+    ).toBe("Things(7)?$expand=Locations($select=id,location)&count=true&token=abc");
   });
 
   it("formats an expanded entity without a top-level query string", () => {
@@ -48,8 +50,6 @@ describe("QueryGenerator", () => {
       pathSuffix: "Observations",
     };
 
-    expect(new QueryGenerator(query, config()).toString(false)).toBe(
-      "Datastreams(3)",
-    );
+    expect(new QueryGenerator(query, config()).toString(false)).toBe("Datastreams(3)");
   });
 });

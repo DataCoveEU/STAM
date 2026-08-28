@@ -3,9 +3,7 @@
   "projectOwner": "DataCoveEU",
   "repoType": "github",
   "repoHost": "",
-  "files": [
-    "README.md"
-  ],
+  "files": ["README.md"],
   "imageSize": 100,
   "commit": true,
   "commitConvention": "gitmoji",
@@ -15,19 +13,14 @@
       "name": "TobiasPressler",
       "avatar_url": "https://avatars3.githubusercontent.com/u/47741525?v=4",
       "profile": "https://github.com/TobiasPressler",
-      "contributions": [
-        "code",
-        "doc"
-      ]
+      "contributions": ["code", "doc"]
     },
     {
       "login": "hylkevds",
       "name": "Hylke van der Schaaf",
       "avatar_url": "https://avatars2.githubusercontent.com/u/4989461?v=4",
       "profile": "https://github.com/hylkevds",
-      "contributions": [
-        "code"
-      ]
+      "contributions": ["code"]
     }
   ],
   "contributorsPerLine": 7

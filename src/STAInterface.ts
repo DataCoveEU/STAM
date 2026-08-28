@@ -23,14 +23,9 @@ export class STAInterface {
     return new Promise(async (resolve, reject) => {
       try {
         //Generate url
-        var url = `${this.config.baseUrl}/${new QueryGenerator(
-          query,
-          this.config
-        ).toString()}`;
+        var url = `${this.config.baseUrl}/${new QueryGenerator(query, this.config).toString()}`;
         //get data
-        var data = await (
-          await fetch(url as any, this.config.fetchOptions)
-        ).json();
+        var data = await (await fetch(url as any, this.config.fetchOptions)).json();
         if (data.value[0] && data.value[0].dataArray) {
           data.value = data.value[0];
         }

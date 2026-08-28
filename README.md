@@ -1,8 +1,9 @@
-
 # STAM
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+
 [![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
 ## 🧐 About <a name = "about"></a>
@@ -11,17 +12,17 @@ STAM (SensorThings API Map) is a JavaScript library for showing the Things/Featu
 
 ## Features
 
-* Easy implementation of an exising SensorThings server into a map
-* Leaflet and OpenLayers are supported
-* Things and Features of interest are supported as spatial features
+- Easy implementation of an exising SensorThings server into a map
+- Leaflet and OpenLayers are supported
+- Things and Features of interest are supported as spatial features
 
 ## 🏁 Getting Started <a name = "getting_started"></a>
 
 ### Prerequisites
 
-* A website
-* A OpenLayers or Leaflet map
-* A SensorThings server url
+- A website
+- A OpenLayers or Leaflet map
+- A SensorThings server url
 
 ### Installation
 
@@ -30,18 +31,20 @@ STAM (SensorThings API Map) is a JavaScript library for showing the Things/Featu
 Include the js file in a script tag.
 
 For Leaflet:
+
 ```html
 <script type="module">
-  import { STAM } from 'https://unpkg.com/sta-map@latest/dist/stam-leaflet.js';
-  
+  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-leaflet.js";
+
   // Use STAM({...})
 </script>
 ```
 
 For OpenLayers:
+
 ```html
 <script type="module">
-  import { STAM } from 'https://unpkg.com/sta-map@latest/dist/stam-openlayers.js';
+  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-openlayers.js";
 
   // Use new STAM({...})
 </script>
@@ -51,7 +54,7 @@ For OpenLayers:
 
 #### Point
 
-A GeoJson with an extra property named getData. 
+A GeoJson with an extra property named getData.
 
 getData is a object, the keys are the observedProperties and the values are async functions.
 
@@ -59,13 +62,13 @@ closePopup is a function, which, when called, closes the current popup.
 
 These functions take a callback as a argument. The callback gets a predefined QueryObject as an argument, can change it and has to return it.
 
-The function returns the data inside the value attribute. 
+The function returns the data inside the value attribute.
 
 ```js
-var data = await feature.properties.getData['NO']((query)=>{
-    query.filter = "phenomenonTime lt now()";
-    query.resultFormat = 'dataArray';
-    return query;
+var data = await feature.properties.getData["NO"]((query) => {
+  query.filter = "phenomenonTime lt now()";
+  query.resultFormat = "dataArray";
+  return query;
 });
 ```
 
@@ -76,6 +79,7 @@ GeoJSON with a property named 'count' with the Things/FeaturesOfInterest inside 
 ### Config
 
 The config is used to specify the style and behaviour of the displayed content
+
 ```js
 {
 	//Specify the range to plot. Offset OR endDate may be specified
@@ -113,7 +117,7 @@ The config is used to specify the style and behaviour of the displayed content
 	polygonStyle?: Function,
 	//Used to style the cluster. Can be a function that returns the second specified interface
 	clusterStyle?: Function | {
-	//Used to specify the style of the circle. 
+	//Used to specify the style of the circle.
 	circle: { //Path interface
 				color: string, //Border color
 				weight: number, //Weight of the borders
@@ -136,12 +140,12 @@ The config is used to specify the style and behaviour of the displayed content
 	clusterMouseOver?: Function,
 	//Called, with the feature as an argument, when a cluster is clicked.
 	clusterClick?: Function,
-	//The instance of the openLayers map. Only necessary for openLayers. 
+	//The instance of the openLayers map. Only necessary for openLayers.
 	map?: any,
 	fetchOptions?: RequestInit, //fetch request options. Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
 	queryParameters?: Map<String,String> //Parameters which shall be added to every request in the URL
 }
-```  
+```
 
 ### Usage
 
@@ -162,17 +166,18 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
 <table>
-  <tr>
-    <td align="center"><a href="https://github.com/TobiasPressler"><img src="https://avatars3.githubusercontent.com/u/47741525?v=4?s=100" width="100px;" alt=""/><br /><sub><b>TobiasPressler</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Code">💻</a> <a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Documentation">📖</a></td>
-    <td align="center"><a href="https://github.com/hylkevds"><img src="https://avatars2.githubusercontent.com/u/4989461?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Hylke van der Schaaf</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=hylkevds" title="Code">💻</a></td>
-  </tr>
+  <tbody>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/TobiasPressler"><img src="https://avatars3.githubusercontent.com/u/47741525?v=4?s=100" width="100px;" alt="TobiasPressler"/><br /><sub><b>TobiasPressler</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Code">💻</a> <a href="https://github.com/DataCoveEU/STAM/commits?author=TobiasPressler" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/hylkevds"><img src="https://avatars2.githubusercontent.com/u/4989461?v=4?s=100" width="100px;" alt="Hylke van der Schaaf"/><br /><sub><b>Hylke van der Schaaf</b></sub></a><br /><a href="https://github.com/DataCoveEU/STAM/commits?author=hylkevds" title="Code">💻</a></td>
+    </tr>
+  </tbody>
 </table>
 
-<!-- markdownlint-enable -->
+<!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
-<!-- ALL-CONTRIBUTORS-LIST:END -->
 
-  
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome
 
@@ -203,4 +208,3 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-

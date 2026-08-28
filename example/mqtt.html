@@ -1,57 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
-        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
-        crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
-        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
-        crossorigin=""></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+      integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+      integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+      crossorigin=""
+    ></script>
     <style>
-        .map {
-            height: 800px;
-            width: 100%;
-        }
+      .map {
+        height: 800px;
+        width: 100%;
+      }
     </style>
     <script src="https://unpkg.com/mqtt@5.15.2/dist/mqtt.min.js"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     <div id="map" class="map"></div>
     <script type="module">
-        import { STAM } from "../dist/stam-leaflet.js";
+      import { STAM } from "../dist/stam-leaflet.js";
 
-        var map2 = L.map('map', {
-            preferCanvas: true
-        }).setView([50.27264, 7.26469], 8);
+      var map2 = L.map("map", {
+        preferCanvas: true,
+      }).setView([50.27264, 7.26469], 8);
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map2);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map2);
 
-        STAM({
-            //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-            //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
-            //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
-            baseUrl: "https://ogc-demo.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
-            markerStyle: function (feature) {
-                return "yellow";
-            },
-            mqtt: true,
-            cluster: false,
-            // cachingDuration: 10,
-            clusterMin: 5,
-            queryObject: {
-                    entityType: 'FeaturesOfInterest'
-                }
-        }).addTo(map2);
+      STAM({
+        //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
+        //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
+        //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
+        //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
+        baseUrl: "https://ogc-demo.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
+        markerStyle: function (feature) {
+          return "yellow";
+        },
+        mqtt: true,
+        cluster: false,
+        // cachingDuration: 10,
+        clusterMin: 5,
+        queryObject: {
+          entityType: "FeaturesOfInterest",
+        },
+      }).addTo(map2);
     </script>
-</body>
-
+  </body>
 </html>

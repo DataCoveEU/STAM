@@ -20,17 +20,12 @@ if (typeof L !== "undefined") {
           case "LineString":
           case "MultiLineString":
             oldLayer.setLatLngs(
-              L.GeoJSON.coordsToLatLngs(
-                coordinates,
-                type === "LineString" ? 0 : 1
-              )
+              L.GeoJSON.coordsToLatLngs(coordinates, type === "LineString" ? 0 : 1),
             );
             break;
           case "Polygon":
           case "MultiPolygon":
-            oldLayer.setLatLngs(
-              L.GeoJSON.coordsToLatLngs(coordinates, type === "Polygon" ? 1 : 2)
-            );
+            oldLayer.setLatLngs(L.GeoJSON.coordsToLatLngs(coordinates, type === "Polygon" ? 1 : 2));
             break;
           default:
             return null;
@@ -65,10 +60,7 @@ if (typeof L !== "undefined") {
 
     start: function () {
       if (!this._timer) {
-        this._timer = setInterval(
-          L.bind(this.update, this),
-          this.options.interval
-        );
+        this._timer = setInterval(L.bind(this.update, this), this.options.interval);
         this.update();
       }
 
@@ -106,8 +98,7 @@ if (typeof L !== "undefined") {
             }
           }, this);
         }, this) as any;
-      let responseHandler,
-        errorHandler;
+      let responseHandler, errorHandler;
 
       if (geojson) {
         this._onNewData(false, geojson);
@@ -117,10 +108,7 @@ if (typeof L !== "undefined") {
         }, this);
         errorHandler = L.bind(this._onError, this);
 
-        this._src(
-          checkRequestCount(responseHandler),
-          checkRequestCount(errorHandler)
-        );
+        this._src(checkRequestCount(responseHandler), checkRequestCount(errorHandler));
       }
 
       return this;
@@ -132,14 +120,12 @@ if (typeof L !== "undefined") {
       }
 
       const features = L.Util.isArray(geojson)
-        ? geojson
-        : geojson.features
-          ? geojson.features
-          : [geojson],
+          ? geojson
+          : geojson.features
+            ? geojson.features
+            : [geojson],
         exit: any = {};
-      let i,
-        len,
-        fId;
+      let i, len, fId;
 
       for (i = 0, len = features.length; i < len; i++) {
         fId = this.options.getFeatureId(features[i]);
@@ -207,12 +193,7 @@ if (typeof L !== "undefined") {
           for (i = 0, len = features.length; i < len; i++) {
             // only add this if geometry or geometries are set and not null
             feature = features[i];
-            if (
-              feature.geometries ||
-              feature.geometry ||
-              feature.features ||
-              feature.coordinates
-            ) {
+            if (feature.geometries || feature.geometry || feature.features || feature.coordinates) {
               handleData(feature);
             }
           }

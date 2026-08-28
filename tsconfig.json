@@ -9,7 +9,7 @@
     "skipLibCheck": true,
     "noImplicitAny": true,
     "target": "esnext",
-    "allowUmdGlobalAccess": true,
+    "allowUmdGlobalAccess": true
   },
   "include": ["src/**/*", "tests/**/*"]
 }

@@ -24,6 +24,8 @@
   "scripts": {
     "build": "pnpm tsdown",
     "dev": "node scripts/dev.mjs",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "watch": "pnpm tsdown --watch",
@@ -50,6 +52,7 @@
     "all-contributors-cli": "^6.26.1",
     "events": "^3.3.0",
     "picomodal": "^3.0.0",
+    "prettier": "3.8.3",
     "semantic-release": "^25.0.9",
     "tsdown": "0.22.14",
     "tslib": "^2.8.1",
