@@ -194,6 +194,56 @@ export class MapInterface extends EventEmitter {
   }
 
   /**
+   * The ring of an OSM tile, as a GeoJSON polygon's coordinates
+   * @param x tile column
+   * @param y tile row
+   * @param zoom zoom level the tile belongs to
+   */
+  private tileRing(x: number, y: number, zoom: number) {
+    const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
+    const B = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
+
+    return [
+      [
+        [T.lng, T.lat],
+        [T.lng, B.lat],
+        [B.lng, B.lat],
+        [B.lng, T.lat],
+        [T.lng, T.lat],
+      ],
+    ];
+  }
+
+  /**
+   * A tile is split into four on the next zoom level. Zooming back out can reuse those counts
+   * instead of asking the service again
+   * @returns the summed count, or undefined if the four are not all cached
+   */
+  private countFromCachedTiles(x: number, y: number, zoom: number): number | undefined {
+    const cached = this.getCached(zoom + 1).features;
+    var count = 0;
+
+    for (const [childX, childY] of [
+      [x * 2, y * 2],
+      [x * 2 + 1, y * 2],
+      [x * 2, y * 2 + 1],
+      [x * 2 + 1, y * 2 + 1],
+    ]) {
+      const tile = {
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: this.tileRing(childX, childY, zoom + 1) },
+      };
+      const child = cached.find((feature: any) => compare_features(tile, feature));
+
+      //Without all four the sum would be short
+      if (child?.properties?.count == undefined) return undefined;
+      count += child.properties.count;
+    }
+
+    return count;
+  }
+
+  /**
    * Get a QueryObject based on the current zoom level
    * @param zoom Zoom level
    */
@@ -307,29 +357,14 @@ export class MapInterface extends EventEmitter {
     //Iterate all OSM tiles
     for (var x = bottom.lng; x <= top.lng; x++) {
       for (var y = top.lat; y <= bottom.lat; y++) {
-        //Get top and bottom coordinates
-        const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
-        const B = {
-          lat: this.tile2lat(y + 1, zoom),
-          lng: this.tile2long(x + 1, zoom),
-        };
+        //Get the coordinates of the tile
+        const RING = this.tileRing(x, y, zoom);
 
         //Clone the query object
         const QUERYCOPY = JSON.parse(JSON.stringify(correctedQuery));
 
         //Get the ST filter
-        const GEOFILTER = polygonToFilter(
-          [
-            [
-              [T.lng, T.lat],
-              [T.lng, B.lat],
-              [B.lng, B.lat],
-              [B.lng, T.lat],
-              [T.lng, T.lat],
-            ],
-          ],
-          QUERYCOPY.entityType,
-        );
+        const GEOFILTER = polygonToFilter(RING, QUERYCOPY.entityType);
 
         //Append it to old filter if given
         if (QUERYCOPY.filter) {
@@ -343,15 +378,7 @@ export class MapInterface extends EventEmitter {
           type: "Feature",
           geometry: {
             type: "Polygon",
-            coordinates: [
-              [
-                [T.lng, T.lat],
-                [T.lng, B.lat],
-                [B.lng, B.lat],
-                [B.lng, T.lat],
-                [T.lng, T.lat],
-              ],
-            ],
+            coordinates: RING,
           },
           properties: {
             count: 0,
@@ -363,12 +390,15 @@ export class MapInterface extends EventEmitter {
           return compare_features(feature, feature2);
         });
 
+        //Zooming out: the tiles this one was split into may still hold their counts
+        const CACHEDCOUNT = this.clusterEnabled ? this.countFromCachedTiles(x, y, zoom) : undefined;
+
         //Check if polygon is cached
         if (!existing) {
           promises.push(
             (async () => {
               //Check if clustering is enabled
-              if (this.clusterEnabled) {
+              if (this.clusterEnabled && CACHEDCOUNT == undefined) {
                 //Get count for the polygon
                 var data: any;
                 try {
@@ -385,6 +415,10 @@ export class MapInterface extends EventEmitter {
                 if (!data) return;
 
                 feature.properties.count = data["@iot.count"];
+                this.addToCache(zoom, feature);
+              } else if (this.clusterEnabled) {
+                //The summed count of the four tiles, no request needed
+                feature.properties.count = CACHEDCOUNT!;
                 this.addToCache(zoom, feature);
               } else {
                 //Don't get the data if clustering is disabled
@@ -415,6 +449,8 @@ export class MapInterface extends EventEmitter {
       //Remove reference to config.queryObject
       var markerQuery = JSON.parse(JSON.stringify(this.getQuery(zoom)));
       markerQuery.top = 1000;
+      //The count is already known from the polygon query, counting again only slows the service down
+      delete markerQuery.count;
 
       if (markerQuery.entityType == "Things") {
         //Check if expand is specified in the queryObject

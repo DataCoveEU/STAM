@@ -81,4 +81,83 @@ describe("MapInterface", () => {
     releaseSecondCount();
     await loaded;
   });
+
+  it("counts only once, the entity request does not ask for the count again", async () => {
+    const urls: string[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+      urls.push(decodeURIComponent(String(url)));
+      return new Response(JSON.stringify({ value: [], "@iot.count": 0 }));
+    });
+
+    //Even a queryObject that asks for the count only gets it on the polygon query
+    const mapInterface = new MapInterface({
+      ...config,
+      queryObject: { entityType: "Things", count: true },
+    });
+    await (mapInterface as any).loadLayerData(12, boundingBox);
+
+    const counting = urls.filter((url) => url.includes("$count=true"));
+    const entities = urls.filter((url) => url.includes("$expand=Datastreams"));
+
+    expect(counting.length).toBeGreaterThan(0);
+    expect(entities.length).toBeGreaterThan(0);
+    expect(counting.every((url) => url.includes("$top=0"))).toBe(true);
+    expect(entities.some((url) => url.includes("$count"))).toBe(false);
+  });
+
+  it("sums the cached tiles of the zoom level below instead of counting again", async () => {
+    let counts = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+      const counting = decodeURIComponent(String(url)).includes("$count=true");
+      if (counting) counts++;
+      //Every counted tile holds three things
+      return new Response(JSON.stringify({ value: [], "@iot.count": counting ? 3 : 0 }));
+    });
+
+    const mapInterface = new MapInterface(config) as any;
+    //Zoom 13 splits every zoom 12 tile into four
+    await mapInterface.loadLayerData(13, boundingBox);
+    const countedWhileZoomedIn = counts;
+    expect(countedWhileZoomedIn).toBeGreaterThan(0);
+
+    await mapInterface.loadLayerData(12, boundingBox);
+
+    const tiles = mapInterface
+      .getCached(12)
+      .features.filter((feature: any) => feature.properties?.count != undefined);
+    const summed = tiles.filter((feature: any) => feature.properties.count == 12);
+
+    //Tiles whose four children were all cached are summed, the ones at the edge are not
+    expect(summed.length).toBeGreaterThan(0);
+    expect(counts - countedWhileZoomedIn).toBe(tiles.length - summed.length);
+  });
+
+  it("never queries a tile that lies completely outside the viewport", async () => {
+    const queried: number[][] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+      const match = decodeURIComponent(String(url)).match(/POLYGON \(\((.*?)\)\)/);
+      if (match) {
+        const points = match[1].split(",").map((point) => point.trim().split(" ").map(Number));
+        //west, south, east, north of the queried polygon
+        queried.push([
+          Math.min(...points.map((p) => p[0])),
+          Math.min(...points.map((p) => p[1])),
+          Math.max(...points.map((p) => p[0])),
+          Math.max(...points.map((p) => p[1])),
+        ]);
+      }
+      return new Response(JSON.stringify({ value: [], "@iot.count": 0 }));
+    });
+
+    //boundingBox is [east, north, west, south]
+    const [east, north, west, south] = boundingBox;
+    const mapInterface = new MapInterface(config) as any;
+    await mapInterface.loadLayerData(12, boundingBox);
+
+    expect(queried.length).toBeGreaterThan(0);
+    const outside = queried.filter(
+      (box) => box[0] >= east || box[2] <= west || box[1] >= north || box[3] <= south,
+    );
+    expect(outside).toEqual([]);
+  });
 });
