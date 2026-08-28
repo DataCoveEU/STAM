@@ -11,5 +11,5 @@
     "target": "esnext",
     "allowUmdGlobalAccess": true,
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "tests/**/*"]
 }
