@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -7,7 +7,7 @@
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/ol@v10.10.0/dist/ol.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.10.0/ol.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.10.0/ol.css" />
     <style>
       .map {
         height: 800px;
@@ -41,8 +41,7 @@
           //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
           //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
           //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
-          baseUrl:
-            "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
+          baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
           markerStyle: function (feature) {
             return "yellow";
           },
@@ -57,9 +56,8 @@
             entityType: "Things",
           },
           map,
-        })
+        }),
       );
-
     </script>
   </body>
 </html>

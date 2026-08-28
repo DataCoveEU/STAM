@@ -24,9 +24,7 @@ describe("STAInterface", () => {
           }),
         ),
       )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ value: [{ id: 3 }] })),
-      );
+      .mockResolvedValueOnce(new Response(JSON.stringify({ value: [{ id: 3 }] })));
 
     const result = await new STAInterface(config).getGeoJson(query);
 
@@ -37,10 +35,7 @@ describe("STAInterface", () => {
       "https://sensor.example/v1.1/Things?$top=3",
       undefined,
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      "https://sensor.example/v1.1/Things?$skip=2",
-    );
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://sensor.example/v1.1/Things?$skip=2");
   });
 
   it("merges dataArray pages", async () => {
@@ -54,9 +49,7 @@ describe("STAInterface", () => {
         ),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ value: [{ dataArray: [["id", "time", 2]] }] }),
-        ),
+        new Response(JSON.stringify({ value: [{ dataArray: [["id", "time", 2]] }] })),
       );
 
     const result = await new STAInterface(config).getGeoJson({

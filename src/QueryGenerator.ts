@@ -19,15 +19,15 @@ export class QueryGenerator {
   toString(main: boolean = true) {
     let url = this.queryObject.entityType;
     const prefix: string[] = [];
-  
+
     // Adding id if present
     if (this.queryObject.id) {
       if (main) {
-        url = `${url}(${this.queryObject.id})`
+        url = `${url}(${this.queryObject.id})`;
         delete this.queryObject.id;
       } else {
         //If not in main, no other attributes can be added
-        return `${this.queryObject.entityType}(${this.queryObject.id})`
+        return `${this.queryObject.entityType}(${this.queryObject.id})`;
       }
     }
 
@@ -35,30 +35,35 @@ export class QueryGenerator {
       url = `${url}/${this.queryObject.pathSuffix}`;
     }
 
-
     for (const key in this.queryObject) {
       //Remove empty properties
-      if ((!this.queryObject[key]) && this.queryObject[key] != 0) continue;
+      if (!this.queryObject[key] && this.queryObject[key] != 0) continue;
       //Select
-      if (key == 'select') {
-        prefix.push(`$select=${this.queryObject.select!.join(',')}`);
+      if (key == "select") {
+        prefix.push(`$select=${this.queryObject.select!.join(",")}`);
         continue;
       }
       //Expand
-      if (key == 'expand') {
-        prefix.push(`$expand=${this.queryObject.expand!.map<String>((queryObject) => {
-          return new QueryGenerator(queryObject,this.config).toString(false);
-        }).join(',')}`);
+      if (key == "expand") {
+        prefix.push(
+          `$expand=${this.queryObject
+            .expand!.map<String>((queryObject) => {
+              return new QueryGenerator(queryObject, this.config).toString(false);
+            })
+            .join(",")}`,
+        );
         continue;
       }
       //Every other property
-      if (key != 'entityType' && key != 'pathSuffix') {
-        prefix.push(`$${key}=${this.queryObject[key]!.toString()}`)
+      if (key != "entityType" && key != "pathSuffix") {
+        prefix.push(`$${key}=${this.queryObject[key]!.toString()}`);
       }
     }
 
-    if(main && this.config.queryParameters){
-      prefix.push(...Object.entries(this.config.queryParameters).map<string>(e => `${e[0]}=${e[1]}`));
+    if (main && this.config.queryParameters) {
+      prefix.push(
+        ...Array.from(this.config.queryParameters.entries(), ([key, value]) => `${key}=${value}`),
+      );
     }
 
     //Check if a prefix is present
@@ -68,9 +73,9 @@ export class QueryGenerator {
 
     //Return right url string
     if (main) {
-      return `${url}?${prefix.join('&')}`;
+      return `${url}?${prefix.join("&")}`;
     } else {
-      return `${url}(${prefix.join(';')})`;
+      return `${url}(${prefix.join(";")})`;
     }
   }
 }

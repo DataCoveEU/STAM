@@ -54,9 +54,7 @@ export interface Config {
   queryObject: QueryObject | Array<RangeQuery>;
   baseUrl: string;
   markerStyle?: Function | string;
-  clusterStyle?:
-    | Function
-    | ClusterStyle;
+  clusterStyle?: Function | ClusterStyle;
   polygonStyle?: Function | string;
   markerMouseOver?: Function;
   popupClose?: Function;

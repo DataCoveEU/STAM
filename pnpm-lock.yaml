@@ -30,6 +30,9 @@ importers:
       picomodal:
         specifier: ^3.0.0
         version: 3.0.0
+      prettier:
+        specifier: 3.8.3
+        version: 3.8.3
       semantic-release:
         specifier: ^25.0.9
         version: 25.0.9(supports-color@7.2.0)(typescript@7.0.2)
@@ -1812,6 +1815,11 @@ packages:
   prettier@2.8.8:
     resolution: {integrity: sha512-tdN8qQGvNjw4CHbY+XXk0JgCXn9QiF21a55rBe5LJAU+kDyC4WQn4+awm2Xfk2lQMk5fKup9XgzTZtGkjBdP9Q==}
     engines: {node: '>=10.13.0'}
+    hasBin: true
+
+  prettier@3.8.3:
+    resolution: {integrity: sha512-7igPTM53cGHMW8xWuVTydi2KO233VFiTNyF5hLJqpilHfmn8C8gPf+PS7dUT64YcXFbiMGZxS9pCSxL/Dxm/Jw==}
+    engines: {node: '>=14'}
     hasBin: true
 
   pretty-ms@9.3.0:
@@ -4014,6 +4022,8 @@ snapshots:
 
   prettier@2.8.8:
     optional: true
+
+  prettier@3.8.3: {}
 
   pretty-ms@9.3.0:
     dependencies:

@@ -4,7 +4,6 @@ import type { Config, Path, QueryObject } from "./types.js";
 
 declare var Plotly: any;
 
-
 /**
  * Add css to the document
  * @param css Css string
@@ -29,17 +28,12 @@ export function addTransparentBackground(configStyle: Path) {
   }
 }
 
-
 /**
  * Adds the default body to a popup
  * @param content_element popup content element
  * @param feature GeoJSON feature that was clicked
  */
-export function createDefaultPopup(
-  content_element: HTMLElement,
-  feature: any,
-  config: Config
-) {
+export function createDefaultPopup(content_element: HTMLElement, feature: any, config: Config) {
   content_element.innerHTML = "<h3>" + feature.properties.name + "</h3>";
 
   var list = document.createElement("ul");

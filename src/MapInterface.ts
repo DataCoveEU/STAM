@@ -60,7 +60,7 @@ export class MapInterface extends EventEmitter {
 
           //Show on map
           this.emitChange(this.lastZoom);
-        }.bind(this)
+        }.bind(this),
       );
     }
   }
@@ -84,12 +84,9 @@ export class MapInterface extends EventEmitter {
   lat2tile(lat: number, zoom: number) {
     return Math.floor(
       ((1 -
-        Math.log(
-          Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)
-        ) /
-          Math.PI) /
+        Math.log(Math.tan((lat * Math.PI) / 180) + 1 / Math.cos((lat * Math.PI) / 180)) / Math.PI) /
         2) *
-        Math.pow(2, zoom)
+        Math.pow(2, zoom),
     );
   }
 
@@ -150,10 +147,7 @@ export class MapInterface extends EventEmitter {
    * @param boundingBox map's view's bounding box [topLat, topLong, bottomLat, bottomLong]
    * @returns the bounding box of the OSM tiles the map's bounding box intersects with
    */
-  getOSMBoundingBox(
-    zoomLevel: number,
-    boundingBox: Array<number>
-  ): Array<number> {
+  getOSMBoundingBox(zoomLevel: number, boundingBox: Array<number>): Array<number> {
     var topleft = {
       lat: 0,
       lng: 0,
@@ -231,20 +225,14 @@ export class MapInterface extends EventEmitter {
     this.emitChange(zoom);
 
     //Removing the reference to config.queryObject
-    var correctedQuery: QueryObject = JSON.parse(
-      JSON.stringify(this.getQuery(zoom))
-    );
+    var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
 
     if (this.client) {
       this.client.subscribe(
-        [
-          `${this.config.baseUrl.split("/").pop()}/${
-            correctedQuery.entityType
-          }`,
-        ],
+        [`${this.config.baseUrl.split("/").pop()}/${correctedQuery.entityType}`],
         function (err: any, granted: any) {
           if (err) console.error("Failed to subscribe to MQTT updates", err);
-        }
+        },
       );
     }
 
@@ -307,7 +295,7 @@ export class MapInterface extends EventEmitter {
               [T.lng, T.lat],
             ],
           ],
-          QUERYCOPY.entityType
+          QUERYCOPY.entityType,
         );
 
         //Append it to old filter if given
@@ -367,7 +355,7 @@ export class MapInterface extends EventEmitter {
                 this.addToCache(zoom, feature, false);
               }
               resolve(feature);
-            })
+            }),
           );
         }
       }
@@ -385,10 +373,7 @@ export class MapInterface extends EventEmitter {
     //Iterate all polygons
     recs.forEach((feature: any) => {
       //Check if markers should be loaded
-      if (
-        feature.properties.count < this.config.clusterMin ||
-        this.config.cluster == false
-      ) {
+      if (feature.properties.count < this.config.clusterMin || this.config.cluster == false) {
         toMarker.push(feature.geometry.coordinates);
       }
     });
@@ -476,8 +461,7 @@ export class MapInterface extends EventEmitter {
       }
 
       //If a filter is already specified, append the geometry query to the old filter
-      if (markerQuery.filter)
-        markerQuery.filter = `(${markerQuery.filter}) and `;
+      if (markerQuery.filter) markerQuery.filter = `(${markerQuery.filter}) and `;
 
       var promises = [];
 
@@ -509,8 +493,7 @@ export class MapInterface extends EventEmitter {
               //Get the geoJson of the marker
               var geoJson: any;
               //Check for the entityType
-              if (markerQuery.entityType == "Things")
-                geoJson = marker.Locations[0].location;
+              if (markerQuery.entityType == "Things") geoJson = marker.Locations[0].location;
               else geoJson = marker.feature;
 
               //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties
@@ -552,7 +535,7 @@ export class MapInterface extends EventEmitter {
               }
             });
             resolve();
-          })
+          }),
         );
       }
 
@@ -602,18 +585,14 @@ export class MapInterface extends EventEmitter {
    */
   getCached(zoom: number) {
     if (this.config.cachingDuration) {
-      this.cache = this.cache.filter(
-        (cache: CacheObject) => {
-          //Clone date
-          var date = new Date(cache.timestamp);
-          //Add caching time
-          date.setSeconds(
-            cache.timestamp.getSeconds() + this.config.cachingDuration
-          );
-          //Check if date should be removed
-          return date > new Date();
-        }
-      );
+      this.cache = this.cache.filter((cache: CacheObject) => {
+        //Clone date
+        var date = new Date(cache.timestamp);
+        //Add caching time
+        date.setSeconds(cache.timestamp.getSeconds() + this.config.cachingDuration);
+        //Check if date should be removed
+        return date > new Date();
+      });
     }
     var toReturn: any = {
       type: "FeatureCollection",
@@ -652,8 +631,7 @@ export class MapInterface extends EventEmitter {
       if (feature.properties?.count == undefined) return true;
 
       //Check if clustering is disabled
-      if (this.config.cluster == false)
-        return feature.properties?.count == undefined;
+      if (this.config.cluster == false) return feature.properties?.count == undefined;
 
       //Return only the polygons with a higher count as specified
       return feature.properties?.count >= this.config.clusterMin;
