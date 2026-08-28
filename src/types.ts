@@ -1,5 +1,5 @@
 export interface QueryObject {
-  [key: string]: Array<string> | string | Array<QueryObject> | number | boolean;
+  [key: string]: Array<string> | string | Array<QueryObject> | number | boolean | undefined;
   entityType: string;
   filter?: string;
   select?: Array<string>;

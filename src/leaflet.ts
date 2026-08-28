@@ -25,7 +25,7 @@ const STAMLayer = L.LayerGroup.extend({
     initialize: function (config: Config) {
         const mapInterface = new MapInterface(config);
 
-        let highlight: Boolean;
+        let highlight: any;
 
         let cache: any = {
             type: "FeatureCollection",
@@ -98,7 +98,7 @@ const STAMLayer = L.LayerGroup.extend({
         let initialBounds: any = null;
 
         //Called when the layer is added to the map
-        this.on("add", function () {
+        this.on("add", function (this: any) {
             if (this._map != undefined) {
                 const map = this._map;
 
@@ -284,7 +284,7 @@ const STAMLayer = L.LayerGroup.extend({
                 }
 
                 //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating
-                map.on("layeradd", function () {
+                map.on("layeradd", function (this: any) {
                     map.off("layeradd");
 
                     //Create a geojson layer
@@ -336,7 +336,7 @@ const STAMLayer = L.LayerGroup.extend({
 
                 mapInterface.on(
                     "change",
-                    function (geojson: any) {
+                    function (this: any, geojson: any) {
                         if (geojson.zoom == zoom) {
                             /*
                           //Clear layer on change

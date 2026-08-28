@@ -24,6 +24,7 @@
   "scripts": {
     "build": "pnpm tsdown",
     "dev": "node scripts/dev.mjs",
+    "typecheck": "tsc --noEmit",
     "watch": "pnpm tsdown --watch",
     "semantic-release": "semantic-release"
   },

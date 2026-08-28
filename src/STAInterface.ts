@@ -11,7 +11,7 @@ export class STAInterface {
   }
 
   getGeoJson(query: QueryObject) {
-    var limit: number = query.top;
+    var limit: number | undefined = query.top;
     //Only query the given top elements, if a top value is present
     if (query.top == undefined || query.top == null) {
       query.top = 10000;

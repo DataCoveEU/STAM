@@ -50,10 +50,10 @@ class STAM extends ol.layer.Group {
 
         var clearCircles: boolean = false;
 
-        var circleLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+        var circleLayer: any = new ol.layer.Vector({ source: new ol.source.Vector() });
 
         //Create the vectorLayer with the geojson vector source
-        var vectorLayer = new ol.layer.Vector({
+        var vectorLayer: any = new ol.layer.Vector({
             source: new ol.source.Vector(),
             // features,
             style: function (feature: any) {
@@ -83,7 +83,7 @@ class STAM extends ol.layer.Group {
                                 })
                             );
                         });
-                        return null;
+                        return undefined;
                     }
                     //Add the marker image
                     var style = new ol.style.Style({
@@ -222,9 +222,9 @@ class STAM extends ol.layer.Group {
         }
 
         //Creating the popup
-        const container = document.getElementById("popup"),
-            content_element = document.getElementById("popup-content"),
-            closer = document.getElementById("popup-closer");
+        const container = document.getElementById("popup") as HTMLElement,
+            content_element = document.getElementById("popup-content") as HTMLElement,
+            closer = document.getElementById("popup-closer") as HTMLElement;
         let initialBounds: any = null;
 
         //Create overlay for popup
@@ -250,7 +250,7 @@ class STAM extends ol.layer.Group {
 
         var last: any = null;
 
-        olmap.on("pointermove", function (e: any) {
+        olmap.on("pointermove", function (this: any, e: any) {
             //Get the hovered feature
             var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
                 //Check if it is a cluster
@@ -465,7 +465,7 @@ function olToGeoJSON(feature: any): any {
  * Helper function to convert a Path object to a valid openLayers style
  * @param path Path to convert
  */
-function pathToOl(path: Path) {
+function pathToOl(path: Path | undefined) {
     return new ol.style.Style({
         stroke: new ol.style.Stroke({
             color: colorWithAlpha(path?.color ?? "red", path?.opacity),
