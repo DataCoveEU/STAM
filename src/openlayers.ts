@@ -1,7 +1,7 @@
 import { MapInterface } from "./MapInterface";
 import type { Config, Path, ClusterStyle } from "./types";
 import { addCss, createDefaultPopup } from "./utils";
-import type Map from "ol/Map";
+import type OlMap from "ol/Map";
 import type VectorLayer from "ol/layer/Vector";
 import type VectorSource from "ol/source/Vector";
 
@@ -46,17 +46,28 @@ function markerStyle(color: string) {
 class STAM extends ol.layer.Group {
   constructor(config: Config) {
     super();
-    const olmap = config.map as Map;
+    const olmap = config.map as OlMap;
 
     //Get current zoom level and remove all decimal places
     zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
 
     var mapInterface = new MapInterface(config);
 
-    var clearCircles: boolean = false;
-
     const circleSource = new ol.source.Vector();
     const circleLayer: VectorLayer<VectorSource> = new ol.layer.Vector({ source: circleSource });
+
+    //The circle of every drawn cluster, so it can be removed together with its cluster
+    const circles = new Map<string, any>();
+
+    //The style a cluster is configured with, cached on the feature
+    const clusterStyleOf = (feature: any): ClusterStyle | undefined => {
+      if (typeof config.clusterStyle != "function") return config.clusterStyle;
+
+      if (!feature._clusterStyleCache) {
+        feature._clusterStyleCache = { style: config.clusterStyle(olToGeoJSON(feature)) };
+      }
+      return feature._clusterStyleCache.style;
+    };
 
     //Create the vectorLayer with the geojson vector source
     const vectorSource = new ol.source.Vector();
@@ -64,10 +75,6 @@ class STAM extends ol.layer.Group {
       source: vectorSource,
       // features,
       style: function (feature: any) {
-        if (clearCircles) {
-          clearCircles = false;
-          circleSource.clear();
-        }
         //Check the feature type
         if (feature.getGeometry().getType() == "Point") {
           //Call the function if present, otherwise use the color name if present. Default is blue
@@ -86,72 +93,9 @@ class STAM extends ol.layer.Group {
           //Add the marker image
           return markerStyle(color);
         } else {
-          //Get extends of cluster
-          const cords = feature.getGeometry().getExtent();
-
-          //Calculate middle
-          const long = (cords[0] + cords[2]) / 2;
-          const lat = (cords[1] + cords[3]) / 2;
-
-          //Get style from config
-          const style: ClusterStyle | undefined =
-            typeof config.clusterStyle == "function"
-              ? ((feature: any) => {
-                  if (!feature._clusterStyleCache) {
-                    feature._clusterStyleCache = {
-                      style: config.clusterStyle(olToGeoJSON(feature)),
-                    };
-                  }
-                  return feature._clusterStyleCache.style;
-                })(feature)
-              : config.clusterStyle;
-
-          //Get the individual styles
-          const circleStyle = style?.circle;
-          const polygonStyle = style?.polygon.default;
-
-          if (feature.get("count") != undefined) {
-            //Add circle with text
-            const circle = new ol.Feature({
-              geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6),
-              name: "cluster",
-            });
-
-            //Create the text style
-            const text = new ol.style.Text({
-              font: 30 + "px Calibri,sans-serif",
-              fill: new ol.style.Fill({ color: "#000" }),
-              stroke: new ol.style.Stroke({
-                color: "#fff",
-                width: 2,
-              }),
-              text: `${feature.get("count")}`,
-            });
-
-            //Add circle style, if present
-            if (circleStyle) {
-              const style = pathToOl(circleStyle);
-              style.setText(text);
-              circle.setStyle(style);
-            } else {
-              circle.setStyle(
-                new ol.style.Style({
-                  stroke: new ol.style.Stroke({
-                    width: 2,
-                    color: "red",
-                  }),
-                  text,
-                }),
-              );
-            }
-
-            //Add circle to circle layer
-            circleSource.addFeature(circle);
-          }
-
           //Use config style if preset
           return (
-            pathToOl(polygonStyle) ??
+            pathToOl(clusterStyleOf(feature)?.polygon.default) ??
             new ol.style.Style({
               stroke: new ol.style.Stroke({
                 color: "#3399CC",
@@ -163,6 +107,60 @@ class STAM extends ol.layer.Group {
         }
       },
     });
+
+    /**
+     * Draws the count of a cluster as a circle on the circle layer
+     */
+    const addCircle = (key: string, feature: any) => {
+      if (feature.get("count") == undefined) return;
+
+      //Get extends of cluster
+      const cords = feature.getGeometry().getExtent();
+
+      //Calculate middle
+      const long = (cords[0] + cords[2]) / 2;
+      const lat = (cords[1] + cords[3]) / 2;
+
+      //Add circle with text
+      const circle = new ol.Feature({
+        geometry: new ol.geom.Circle([long, lat], (cords[2] - cords[0]) / 6),
+        name: "cluster",
+      });
+
+      //Create the text style
+      const text = new ol.style.Text({
+        font: 30 + "px Calibri,sans-serif",
+        fill: new ol.style.Fill({ color: "#000" }),
+        stroke: new ol.style.Stroke({
+          color: "#fff",
+          width: 2,
+        }),
+        text: `${feature.get("count")}`,
+      });
+
+      const circleStyle = clusterStyleOf(feature)?.circle;
+
+      //Add circle style, if present
+      if (circleStyle) {
+        const style = pathToOl(circleStyle);
+        style.setText(text);
+        circle.setStyle(style);
+      } else {
+        circle.setStyle(
+          new ol.style.Style({
+            stroke: new ol.style.Stroke({
+              width: 2,
+              color: "red",
+            }),
+            text,
+          }),
+        );
+      }
+
+      //Add circle to circle layer
+      circles.set(key, circle);
+      circleSource.addFeature(circle);
+    };
 
     //Create a layergroup out of the circle layer and GeoJson layer
     const layer = new ol.layer.Group({ layers: [circleLayer, vectorLayer] });
@@ -177,15 +175,33 @@ class STAM extends ol.layer.Group {
 
     //Fetch the geojson
     mapInterface.on("change", (geoJson: any) => {
-      if (geoJson.zoom == zoom) {
-        //Clear the geojson layer
-        vectorSource.clear();
+      if (geoJson.zoom != zoom) return;
 
-        //Force circle layer clear
-        clearCircles = true;
+      //Everything the map should show now
+      const incoming = new Map<string, any>();
+      for (const feature of geoJson.features) incoming.set(featureKey(feature), feature);
 
-        //Create the geojson and add it to the source
-        vectorSource.addFeatures(format.readFeatures(geoJson));
+      //Features that are still there stay untouched, the ones that are gone are removed
+      for (const feature of vectorSource.getFeatures()) {
+        const key = (feature as any)._stamKey;
+        if (incoming.delete(key)) continue;
+
+        vectorSource.removeFeature(feature);
+
+        const circle = circles.get(key);
+        if (circle) {
+          circleSource.removeFeature(circle);
+          circles.delete(key);
+        }
+      }
+
+      //Only what is left is new, so only that is parsed and drawn
+      for (const [key, geoJsonFeature] of incoming) {
+        const feature: any = format.readFeature(geoJsonFeature);
+        feature._stamKey = key;
+
+        vectorSource.addFeature(feature);
+        addCircle(key, feature);
       }
     });
 
@@ -403,6 +419,20 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, olmap: any) {
   }
 
   mapInterface.getLayerData(zoom, bounds);
+}
+
+/**
+ * Identifies a feature across updates. Markers keep their id, a cluster its tile and count
+ */
+function featureKey(feature: any): string {
+  const id = feature.properties?.["@iot.id"];
+  if (id != undefined) return `${id}`;
+
+  const coordinates = feature.geometry.coordinates.flat(3).join("/");
+  //A cluster whose count changed has to be drawn again
+  return feature.properties?.count == undefined
+    ? coordinates
+    : `${coordinates}/${feature.properties.count}`;
 }
 
 /**
