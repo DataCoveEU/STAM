@@ -249,7 +249,7 @@ export class MapInterface extends EventEmitter {
       this.loadLayerData.bind(this),
       this.config.debounceDuration ?? DEFAULT_DEBOUNCE_DURATION,
       zoom,
-      boundingBox
+      boundingBox,
     );
   }
 
@@ -301,8 +301,6 @@ export class MapInterface extends EventEmitter {
       lat: this.lat2tile(boundingBox[3], zoom),
       lng: this.long2tile(boundingBox[2], zoom),
     };
-
-    var recs: any = [];
 
     var promises: any = [];
 
@@ -368,7 +366,7 @@ export class MapInterface extends EventEmitter {
         //Check if polygon is cached
         if (!existing) {
           promises.push(
-            new Promise(async (resolve, reject) => {
+            (async () => {
               //Check if clustering is enabled
               if (this.clusterEnabled) {
                 //Get count for the polygon
@@ -383,38 +381,28 @@ export class MapInterface extends EventEmitter {
                     console.error("Failed to fetch data", e);
                   }
                 }
+                //Leave the polygon uncached, so the next map movement retries it
+                if (!data) return;
+
                 feature.properties.count = data["@iot.count"];
                 this.addToCache(zoom, feature);
               } else {
                 //Don't get the data if clustering is disabled
                 this.addToCache(zoom, feature, false);
               }
-              resolve(feature);
-            }),
+
+              //Load this polygon's markers right away, instead of waiting for the other polygons
+              if (feature.properties.count < this.clusterMin || !this.clusterEnabled) {
+                await this.getMarkers([feature.geometry.coordinates], zoom);
+              }
+            })(),
           );
         }
       }
     }
 
-    var counts = await Promise.all(promises);
-
-    //Push all features to the recs array
-    counts.forEach((feature: any) => {
-      recs.push(feature);
-    });
-
-    var toMarker: any = [];
-
-    //Iterate all polygons
-    recs.forEach((feature: any) => {
-      //Check if markers should be loaded
-      if (feature.properties.count < this.clusterMin || !this.clusterEnabled) {
-        toMarker.push(feature.geometry.coordinates);
-      }
-    });
-
-    //Load markers
-    await this.getMarkers(toMarker, zoom);
+    //Every polygon renders and loads its markers on its own, this only awaits the last one
+    await Promise.all(promises);
   }
 
   /**

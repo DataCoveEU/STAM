@@ -56,4 +56,29 @@ describe("MapInterface", () => {
 
     expect(load).toHaveBeenCalledTimes(2);
   });
+
+  it("loads a polygon's markers before the other polygons are counted", async () => {
+    let releaseSecondCount = () => {};
+    const secondCount = new Promise<void>((resolve) => (releaseSecondCount = resolve));
+    let requests = 0;
+
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      requests++;
+      //Hold one polygon's count open, the others resolve right away
+      if (requests == 2) await secondCount;
+      return new Response(JSON.stringify({ value: [], "@iot.count": 0 }));
+    });
+
+    const mapInterface = new MapInterface(config);
+    const getMarkers = vi.spyOn(mapInterface as any, "getMarkers").mockResolvedValue(undefined);
+
+    const loaded = (mapInterface as any).loadLayerData(12, boundingBox);
+
+    //Markers are requested while the held count is still pending
+    await vi.waitFor(() => expect(getMarkers).toHaveBeenCalled());
+    expect(getMarkers.mock.calls[0][0]).toHaveLength(1);
+
+    releaseSecondCount();
+    await loaded;
+  });
 });
