@@ -23,7 +23,7 @@
     ]
   },
   "scripts": {
-    "build": "pnpm tsdown",
+    "build": "pnpm tsdown --minify",
     "dev": "node scripts/dev.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
@@ -52,6 +52,7 @@
     "@types/leaflet": "^1.9.22",
     "all-contributors-cli": "^6.26.1",
     "events": "^3.3.0",
+    "p-limit": "^7.3.1",
     "picomodal": "^3.0.0",
     "prettier": "3.8.3",
     "semantic-release": "^25.0.9",

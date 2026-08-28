@@ -1,4 +1,4 @@
-import { Config, QueryObject } from "./types.js";
+import { Config, QueryObject } from "./types";
 
 /**
  * Used for creating a link from a QueryObject

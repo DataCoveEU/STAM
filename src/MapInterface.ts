@@ -1,5 +1,5 @@
-import { Config, QueryObject, Range, RangeQuery } from "./types.js";
-import { STAInterface } from "./STAInterface.js";
+import { Config, QueryObject, Range, RangeQuery } from "./types";
+import { STAInterface } from "./STAInterface";
 import { EventEmitter } from "events";
 
 declare var mqtt: any;
@@ -9,7 +9,7 @@ const DEFAULT_CLUSTER_MIN = 5;
 
 export class MapInterface extends EventEmitter {
   config: Config;
-  api: STAInterface;
+  readonly api: STAInterface;
   client: any;
   lastZoom: number;
 

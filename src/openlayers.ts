@@ -1,9 +1,9 @@
-import { MapInterface } from "./MapInterface.js";
-import type { Config, Path, ClusterStyle } from "./types.js";
-import { addCss, createDefaultPopup } from "./utils.js";
-import type Map from "ol/Map.js";
-import type VectorLayer from "ol/layer/Vector.js";
-import type VectorSource from "ol/source/Vector.js";
+import { MapInterface } from "./MapInterface";
+import type { Config, Path, ClusterStyle } from "./types";
+import { addCss, createDefaultPopup } from "./utils";
+import type Map from "ol/Map";
+import type VectorLayer from "ol/layer/Vector";
+import type VectorSource from "ol/source/Vector";
 
 declare global {
   var ol: {

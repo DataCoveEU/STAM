@@ -7,8 +7,8 @@ export default defineConfig({
   },
   platform: "browser",
   deps: {
+    onlyBundle: false,
     neverBundle: ["leaflet", "ol/*"],
   },
   sourcemap: true,
-  //minify: true,
 });
