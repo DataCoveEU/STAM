@@ -1,164 +1,129 @@
 # STAM
 
-<!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
+[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors)
 
-[![All Contributors](https://img.shields.io/badge/all_contributors-2-orange.svg?style=flat-square)](#contributors-)
+STAM (SensorThings API Map) displays `Things` or `FeaturesOfInterest` from an OGC SensorThings API service on a Leaflet or OpenLayers map. It loads spatial features for the current map view, clusters dense areas, caches fetched data, and can receive MQTT updates.
 
-<!-- ALL-CONTRIBUTORS-BADGE:END -->
+## Requirements
 
-## 🧐 About <a name = "about"></a>
+- A SensorThings API endpoint.
+- A browser map created with Leaflet or OpenLayers.
+- The corresponding map library loaded as a browser global: `L` for Leaflet or `ol` for OpenLayers.
 
-STAM (SensorThings API Map) is a JavaScript library for showing the Things/Features of interest of a SensorThings server on a Leaflet/OpenLayers map.
+The generated bundles externalize Leaflet and OpenLayers. Load the matching library and its CSS before creating a STAM layer.
 
-## Features
+## Installation
 
-- Easy implementation of an exising SensorThings server into a map
-- Leaflet and OpenLayers are supported
-- Things and Features of interest are supported as spatial features
+```sh
+pnpm add sta-map
+```
 
-## 🏁 Getting Started <a name = "getting_started"></a>
+The package exposes two browser bundles:
 
-### Prerequisites
+```js
+import { STAM } from "sta-map/leaflet";
+import { STAM } from "sta-map/openlayers";
+```
 
-- A website
-- A OpenLayers or Leaflet map
-- A SensorThings server url
+For direct browser imports, use the published files at `dist/stam-leaflet.js` and `dist/stam-openlayers.js`.
 
-### Installation
-
-#### Integration with HTML
-
-Include the js file in a script tag.
-
-For Leaflet:
+## Leaflet
 
 ```html
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script type="module">
   import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-leaflet.js";
 
-  // Use STAM({...})
+  const map = L.map("map").setView([50.27, 7.26], 8);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OpenStreetMap contributors",
+  }).addTo(map);
+
+  STAM({
+    baseUrl: "https://example.com/v1.1",
+    queryObject: { entityType: "Things" },
+    cluster: true,
+    clusterMin: 5,
+  }).addTo(map);
 </script>
 ```
 
-For OpenLayers:
+`STAM()` returns a Leaflet layer. Add it to the map with `.addTo(map)`.
 
-```html
-<script type="module">
-  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-openlayers.js";
-
-  // Use new STAM({...})
-</script>
-```
-
-### Spatial Features
-
-#### Point
-
-A GeoJson with an extra property named getData.
-
-getData is a object, the keys are the observedProperties and the values are async functions.
-
-closePopup is a function, which, when called, closes the current popup.
-
-These functions take a callback as a argument. The callback gets a predefined QueryObject as an argument, can change it and has to return it.
-
-The function returns the data inside the value attribute.
+## OpenLayers
 
 ```js
-var data = await feature.properties.getData["NO"]((query) => {
-  query.filter = "phenomenonTime lt now()";
+import { STAM } from "sta-map/openlayers";
+
+const map = new ol.Map({
+  target: "map",
+  layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+  view: new ol.View({ center: [808701, 6493627], zoom: 8 }),
+});
+
+map.addLayer(
+  new STAM({
+    baseUrl: "https://example.com/v1.1",
+    queryObject: { entityType: "Things" },
+    cluster: true,
+    clusterMin: 5,
+    map,
+  }),
+);
+```
+
+The OpenLayers bundle expects the global `ol` build and the map instance in `config.map`.
+
+## Configuration
+
+| Option            | Description                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `baseUrl`         | Base URL of the SensorThings API service.                                                                                                |
+| `queryObject`     | A query object or zoom-based array of `{ zoomLevel, query }` entries. Supported entity types are `Things` and `FeaturesOfInterest`.      |
+| `cluster`         | Enables clustering. Defaults to enabled when omitted.                                                                                    |
+| `clusterMin`      | Minimum feature count for a cluster to remain displayed.                                                                                 |
+| `cachingDuration` | Cache lifetime in seconds. A falsy value keeps cached data indefinitely.                                                                 |
+| `plot`            | Observation range used by the default popup: `{ startDate, offset?, endDate? }`.                                                         |
+| `markerStyle`     | Marker color string or function. Supported colors are `green`, `black`, `blue`, `grey`, `violet`, `orange`, `red`, `yellow`, and `gold`. |
+| `polygonStyle`    | Style for non-point spatial features.                                                                                                    |
+| `clusterStyle`    | Circle and polygon styles for clusters, or a function returning them.                                                                    |
+| `fetchOptions`    | Options passed to `fetch` for SensorThings requests.                                                                                     |
+| `queryParameters` | `Map<string, string>` appended to every generated request URL.                                                                           |
+| `mqtt`            | Enables MQTT updates when the browser MQTT client is available.                                                                          |
+| `map`             | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
+
+Callbacks are available for marker and cluster hover/click events, and for popup close events. A `markerClick` callback may return HTML for the popup. The default popup can request observations through the feature's generated data callbacks:
+
+```js
+const observations = await feature.properties.getData[0].getData((query) => {
   query.resultFormat = "dataArray";
+  query.orderby = "phenomenonTime asc";
   return query;
 });
 ```
 
-#### Cluster
+## MQTT
 
-GeoJSON with a property named 'count' with the Things/FeaturesOfInterest inside the cluster
+Set `mqtt: true` and load the MQTT browser client before the STAM bundle:
 
-### Config
-
-The config is used to specify the style and behaviour of the displayed content
-
-```js
-{
-	//Specify the range to plot. Offset OR endDate may be specified
-	plot: {
-		startDate: Date, //Starting date
-		offset?: number, //Count of the observations to be plotted. Can be negative.
-		endDate?: Date //End date to plot to
-	},
-	//Time in seconds to cache the data. Data is cached forever if null
-	cachingDuration: number,
-	//Enable mqtt support
-	mqtt: boolean,
-	//Defaults to true, if false no clustering is going to be applied
-	cluster: boolean,
-	//The minimal count of things in a cluster, so that a cluster is displayed
-	clusterMin: number,
-	//Can be a array of a ranges or directly a queryObject. Queries can be specified for given zoomlevels or ranges.
-	queryObject: {
-		entityType: string, //Entity type to Query. Can only be Things or FeaturesOfInterest
-		filter?: string, //Filter
-	}| Array<{
-		//If a number, the query is used for only that zoom level
-		zoomLevel: number | {
-			from: number, //Must be specified, if to is not specified, the query is going to be used for every zoom level >= from
-			to?: number //The highest zoom level the query should be used for
-		},
-		query: QueryObject //The query to be used
-	}>,
-	//The base url of the Sensorthings API
-	baseUrl: string,
-  //Specifies the color of the marker. The functions gets the geojson as a parameter and has to return the color. The function can be async.
-  //Valid colors: green, black, blue, grey, violet, orange, red, yellow, gold
-	markerStyle?: Function | string,
-	//Used to style non-Point Locations or Features. Returns the style of the feature: https://leafletjs.com/reference.html#geojson
-	polygonStyle?: Function,
-	//Used to style the cluster. Can be a function that returns the second specified interface
-	clusterStyle?: Function | {
-	//Used to specify the style of the circle.
-	circle: { //Path interface
-				color: string, //Border color
-				weight: number, //Weight of the borders
-				opacity: number, //The border's opacity
-				fillColor: string,
-				fillOpacity: number,
-	},
-	polygon: {
-				hover: Path, //The style of the polygon when the curser hovers over it
-				default: Path //The default style
-			}
-	},
-	//Called, with the feature as an argument, when a marker is hovered.
-	markerMouseOver?: Function,
-	//Called, when a popup has been closed with the given feature of the marker
-	popupClose?: Function,
-	//Called, with the feature as an argument, when a marker is clicked. If the function returns a string, it is added into the popup.
-	markerClick?: Function,
-	//Called, with the feature as an argument, when a cluster is hovered.
-	clusterMouseOver?: Function,
-	//Called, with the feature as an argument, when a cluster is clicked.
-	clusterClick?: Function,
-	//The instance of the openLayers map. Only necessary for openLayers.
-	map?: any,
-	fetchOptions?: RequestInit, //fetch request options. Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch
-	queryParameters?: Map<String,String> //Parameters which shall be added to every request in the URL
-}
+```html
+<script src="https://unpkg.com/mqtt@5.15.2/dist/mqtt.min.js"></script>
 ```
 
-### Usage
+STAM subscribes to the MQTT endpoint derived from `baseUrl` and updates matching cached features.
 
-### MQTT
+## Development
 
-MQTT support has been implemented and can be activated by setting the mqtt flag in the config.
-To use MQTT functionalities, the corresponding client library has to be included.
-
-```js
-<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+```sh
+pnpm install
+pnpm dev
 ```
 
-## Contributors ✨
+The development server watches the bundles and serves the Leaflet example at `http://localhost:3000/`. Run `pnpm test`, `pnpm typecheck`, and `pnpm build` for verification.
+
+## Contributors
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
 
@@ -179,7 +144,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome
+This project follows the [all-contributors](https://allcontributors.org/) specification. Contributions of any kind are welcome.
 
 ## License
 
