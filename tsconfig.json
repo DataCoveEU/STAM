@@ -2,12 +2,10 @@
   "compilerOptions": {
     "removeComments": true,
     "declaration": true,
-    "declarationDir": "./dist",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ESNext", "DOM"],
     "noImplicitAny": true,
-    "outDir": "./dist",
     "target": "esnext",
     "allowUmdGlobalAccess": true,
   },
