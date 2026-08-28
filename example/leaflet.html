@@ -47,15 +47,6 @@
         markerStyle: function (feature) {
           return "yellow";
         },
-        markerClick: (marker) => {
-          console.log(marker);
-          setTimeout(() => {
-            marker.properties.closeMarker();
-          }, 1000);
-          var s = "";
-          for (var i = 0; i < 2000; i++) s += "HI\n";
-          return s;
-        },
         cluster: true,
         // cachingDuration: 10,
         clusterMin: 5,
