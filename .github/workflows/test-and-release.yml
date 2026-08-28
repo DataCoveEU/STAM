@@ -55,6 +55,13 @@ jobs:
           cache: false
           install: false
 
+      # @semantic-release/npm leaves the trusted publishing token exchange to the npm CLI,
+      # so the CLI bundled with the Node version above may be too old for it
+      - name: Update the npm CLI
+        run: |
+          npm install --global npm@latest
+          npm --version
+
       - name: Install dependencies
         run: pnpm install
       # The published package ships dist, so it has to be built in this job too
