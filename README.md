@@ -90,7 +90,8 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `polygonStyle`          | Style for non-point spatial features.                                                                                                    |
 | `clusterStyle`          | Circle and polygon styles for clusters, or a function returning them.                                                                    |
 | `fetchOptions`          | Options passed to `fetch` for SensorThings requests.                                                                                     |
-| `maxConcurrentRequests` | Maximum number of requests in flight at once. Defaults to 5.                                                                             |
+| `maxConcurrentRequests` | Requests sent per `requestDelay`. Without a delay the requests are not limited. Defaults to 5.                                           |
+| `requestDelay`          | Milliseconds between two waves of requests. Each wave sends up to `maxConcurrentRequests`. Defaults to 0.                                |
 | `debounceDuration`      | Milliseconds the map has to be still before its data is requested. Defaults to 200.                                                      |
 | `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
 | `mqtt`                  | Enables MQTT updates when the browser MQTT client is available.                                                                          |
