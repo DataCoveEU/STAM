@@ -24,6 +24,7 @@
   "scripts": {
     "build": "pnpm tsdown",
     "dev": "node scripts/dev.mjs",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "watch": "pnpm tsdown --watch",
     "semantic-release": "semantic-release"
@@ -52,7 +53,8 @@
     "semantic-release": "^25.0.9",
     "tsdown": "0.22.14",
     "tslib": "^2.8.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.6"
   },
   "dependencies": {
     "mqtt": "^5.15.2",

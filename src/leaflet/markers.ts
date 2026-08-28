@@ -1,4 +1,4 @@
-const assetUrl = (name: string) => new URL(`https://raw.githubusercontent.com/DataCoveEU/STAM/src/leaflet/markers/${name}`, import.meta.url).href;
+const assetUrl = (name: string) => new URL(`https://raw.githubusercontent.com/DataCoveEU/STAM/refs/heads/main/src/leaflet/markers/${name}`, import.meta.url).href;
 const blackIconUrl = assetUrl("marker-icon-2x-black.png");
 const blueIconUrl = assetUrl("marker-icon-2x-blue.png");
 const goldIconUrl = assetUrl("marker-icon-2x-gold.png");

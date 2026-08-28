@@ -65,5 +65,5 @@ export interface Config {
   clusterClick?: Function;
   map?: any;
   fetchOptions?: RequestInit;
-  queryParameters?: Map<String, String>;
+  queryParameters?: Map<string, string>;
 }

@@ -10,7 +10,7 @@ export class STAInterface {
     this.config = config;
   }
 
-  getGeoJson(query: QueryObject) {
+  getGeoJson(query: QueryObject): Promise<any> {
     var limit: number | undefined = query.top;
     //Only query the given top elements, if a top value is present
     if (query.top == undefined || query.top == null) {
