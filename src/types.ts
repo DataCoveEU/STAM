@@ -115,6 +115,8 @@ export interface Config {
   fetchOptions?: RequestInit;
   /** Maximum number of requests in flight at once. Defaults to `5`. */
   maxConcurrentRequests?: number;
+  /** Milliseconds the map has to be still before its data is requested. Defaults to `200`. */
+  debounceDuration?: number;
   /** Additional query parameters appended to every generated request URL. */
   queryParameters?: Map<string, string>;
 }

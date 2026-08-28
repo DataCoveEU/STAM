@@ -7,6 +7,9 @@ declare var mqtt: any;
 //Used when the config does not specify a minimum cluster size
 const DEFAULT_CLUSTER_MIN = 5;
 
+//Milliseconds the map has to be still before the data is requested
+const DEFAULT_DEBOUNCE_DURATION = 200;
+
 export class MapInterface extends EventEmitter {
   config: Config;
   readonly api: STAInterface;
@@ -15,6 +18,9 @@ export class MapInterface extends EventEmitter {
 
   //Stores the cached geojson
   cache: Array<CacheObject>;
+
+  //Pending request of a map movement that has not settled yet
+  private debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   //Clustering is enabled unless it was explicitly disabled
   private get clusterEnabled(): boolean {
@@ -232,12 +238,27 @@ export class MapInterface extends EventEmitter {
    * Gets a GeoJSON from the current zoom level and bounding box, the fetched data is cached
    * @param zoom current zoom level
    * @param boundingBox map's bounding box
-   * @returns a GeoJSON with polygons as clusters with the property count as the count of things inside the cluster, but only if the things are points. If not the thing's location is returned.
    */
-  async getLayerData(zoom: number, boundingBox: Array<number>) {
-    //If all data is cached, no event would be emitted
+  getLayerData(zoom: number, boundingBox: Array<number>) {
+    //Render what is cached right away, only the requests are debounced
     this.emitChange(zoom);
 
+    //Drop the movement that was still pending, its bounding box is outdated
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(
+      this.loadLayerData.bind(this),
+      this.config.debounceDuration ?? DEFAULT_DEBOUNCE_DURATION,
+      zoom,
+      boundingBox
+    );
+  }
+
+  /**
+   * Requests everything missing from the cache for the given zoom level and bounding box
+   * @param zoom current zoom level
+   * @param boundingBox map's bounding box
+   */
+  private async loadLayerData(zoom: number, boundingBox: Array<number>) {
     //Removing the reference to config.queryObject
     var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
 
