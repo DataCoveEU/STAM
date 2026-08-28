@@ -5,9 +5,11 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ESNext", "DOM"],
+    "types": ["leaflet"],
+    "skipLibCheck": true,
     "noImplicitAny": true,
     "target": "esnext",
     "allowUmdGlobalAccess": true,
   },
-  "include": ["src/**/*", "@types/leaflet", "types/openlayers.d.ts"]
+  "include": ["src/**/*"]
 }
