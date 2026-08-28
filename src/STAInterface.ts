@@ -1,5 +1,5 @@
-import { Config, QueryObject } from "./index";
-import { QueryGenerator } from "./QueryGenerator";
+import type { Config, QueryObject } from "./types.js";
+import { QueryGenerator } from "./QueryGenerator.js";
 
 /**
  * Used for querying a sensorthings server, that may return a next link
