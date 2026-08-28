@@ -1,9 +1,12 @@
-import pLimit, { type LimitFunction } from "p-limit";
+import pThrottle from "p-throttle";
 import type { Config, QueryObject } from "./types";
 import { QueryGenerator } from "./QueryGenerator";
 
 //Browsers allow about this many parallel connections per host
 const DEFAULT_MAX_CONCURRENT_REQUESTS = 5;
+
+//Requests are not spaced out unless the config asks for it
+const DEFAULT_REQUEST_DELAY = 0;
 
 /**
  * Used for querying a sensorthings server, that may return a next link
@@ -11,17 +14,27 @@ const DEFAULT_MAX_CONCURRENT_REQUESTS = 5;
 export class STAInterface {
   config: Config;
 
-  //Caps the requests this interface has in flight at once
-  private limit: LimitFunction;
+  //Sends at most maxConcurrentRequests per requestDelay
+  private request: (url: string, options?: RequestInit) => Promise<Response>;
 
   constructor(config: Config) {
     this.config = config;
-    this.limit = pLimit(config.maxConcurrentRequests ?? DEFAULT_MAX_CONCURRENT_REQUESTS);
+
+    const delay = config.requestDelay ?? DEFAULT_REQUEST_DELAY;
+    //Wrapped, because fetch throws when it is called detached from its global
+    const send = (url: string, options?: RequestInit) => fetch(url, options);
+
+    this.request = delay
+      ? pThrottle({
+          limit: config.maxConcurrentRequests ?? DEFAULT_MAX_CONCURRENT_REQUESTS,
+          interval: delay,
+        })(send)
+      : send;
   }
 
-  //Waits for a free slot before requesting
-  private fetchJson(url: string, options?: RequestInit): Promise<any> {
-    return this.limit(async () => (await fetch(url, options)).json());
+  //Waits for this request's place in the current wave
+  private async fetchJson(url: string, options?: RequestInit): Promise<any> {
+    return (await this.request(url, options)).json();
   }
 
   async getGeoJson(query: QueryObject): Promise<any> {

@@ -46,25 +46,6 @@ describe("STAInterface", () => {
     );
   });
 
-  it("never exceeds the configured request concurrency", async () => {
-    let inFlight = 0;
-    let peak = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
-      inFlight++;
-      peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      inFlight--;
-      return new Response(JSON.stringify({ value: [{ id: 1 }] }));
-    });
-
-    const api = new STAInterface({ ...config, maxConcurrentRequests: 2 });
-    await Promise.all(
-      Array.from({ length: 10 }, (_, id) => api.getGeoJson({ entityType: "Things", id })),
-    );
-
-    expect(peak).toBe(2);
-  });
-
   it("merges dataArray pages", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
@@ -88,5 +69,26 @@ describe("STAInterface", () => {
       ["id", "time", 1],
       ["id", "time", 2],
     ]);
+  });
+
+  it("sends a full wave at once and delays only the next one", async () => {
+    const sentAt: number[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      sentAt.push(Date.now());
+      return new Response(JSON.stringify({ value: [{ id: 1 }] }));
+    });
+
+    const api = new STAInterface({ ...config, maxConcurrentRequests: 2, requestDelay: 30 });
+    await Promise.all(
+      Array.from({ length: 5 }, (_, id) => api.getGeoJson({ entityType: "Things", id })),
+    );
+
+    expect(sentAt).toHaveLength(5);
+    //Two per wave, the waves are 30ms apart. Timers may fire late, but never early
+    const elapsed = sentAt.map((at) => at - sentAt[0]);
+    expect(elapsed[1]).toBeLessThan(29);
+    expect(elapsed[2]).toBeGreaterThanOrEqual(29);
+    expect(elapsed[3] - elapsed[2]).toBeLessThan(29);
+    expect(elapsed[4]).toBeGreaterThanOrEqual(59);
   });
 });

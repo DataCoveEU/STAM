@@ -113,8 +113,10 @@ export interface Config {
   map?: any;
   /** Options passed to `fetch` for every SensorThings request. */
   fetchOptions?: RequestInit;
-  /** Maximum number of requests in flight at once. Defaults to `5`. */
+  /** Requests sent per `requestDelay`. Without a delay the requests are not limited. Defaults to `5`. */
   maxConcurrentRequests?: number;
+  /** Milliseconds between two waves of `maxConcurrentRequests` requests. Defaults to `0`. */
+  requestDelay?: number;
   /** Milliseconds the map has to be still before its data is requested. Defaults to `200`. */
   debounceDuration?: number;
   /** Additional query parameters appended to every generated request URL. */
