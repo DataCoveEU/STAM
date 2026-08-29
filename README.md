@@ -94,6 +94,7 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `maxConcurrentRequests` | Requests sent per `requestDelay`. Without a delay the requests are not limited. Defaults to 5.                                           |
 | `requestDelay`          | Milliseconds between two waves of requests. Each wave sends up to `maxConcurrentRequests`. Defaults to 0.                                |
 | `debounceDuration`      | Milliseconds the map has to be still before its data is requested. Defaults to 200.                                                      |
+| `maxEntities`           | Entities a query without its own `top` loads at most, over all pages. Defaults to 10000.                                                 |
 | `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
 | `mqtt`                  | Enables MQTT updates. `true` uses the defaults derived from `baseUrl`, an object configures them. See [MQTT](#mqtt).                     |
 | `map`                   | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
@@ -101,12 +102,17 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 Callbacks are available for marker and cluster hover/click events, and for popup close events. A `markerClick` callback may return HTML for the popup. The default popup can request observations through the feature's generated data callbacks:
 
 ```js
-const observations = await feature.properties.getData[0].getData((query) => {
-  query.resultFormat = "dataArray";
-  query.orderby = "phenomenonTime asc";
-  return query;
-});
+const observations = await feature.properties.getData[0].getData(
+  (query) => {
+    query.resultFormat = "dataArray";
+    query.orderby = "phenomenonTime asc";
+    return query;
+  },
+  { signal: controller.signal, onProgress: (rows) => console.log(rows) },
+);
 ```
+
+A query without a `top` of its own stops at `maxEntities` rows instead of following every `@iot.nextLink`, so a datastream with millions of observations cannot page on forever. The default popup shows how many rows are in already, says so when the limit cut the series off, and aborts the pending pages when it is closed.
 
 ## MQTT
 

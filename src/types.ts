@@ -51,10 +51,21 @@ export interface ObservationData extends StaResponse<DataArray> {
   unitOfMeasurement?: Datastream["unitOfMeasurement"];
 }
 
+/** Abort signal and progress callback a caller may pass to a request. */
+export interface LoadOptions {
+  /** Aborts the request and the pages it still has to follow. */
+  signal?: AbortSignal;
+  /** Called with the rows loaded so far, after every page. */
+  onProgress?: (loaded: number) => void;
+}
+
 /** Observation getter STAM adds to a marker for every ObservedProperty of its datastreams. */
 export interface ObservedPropertyData {
   observedProperty: string;
-  getData: (configureQuery: (query: QueryObject) => QueryObject) => Promise<ObservationData>;
+  getData: (
+    configureQuery: (query: QueryObject) => QueryObject,
+    options?: LoadOptions,
+  ) => Promise<ObservationData>;
 }
 
 /** The SensorThings entity, plus the members STAM adds to it. */
@@ -196,6 +207,8 @@ export interface Config {
   requestDelay?: number;
   /** Milliseconds the map has to be still before its data is requested. Defaults to `200`. */
   debounceDuration?: number;
+  /** Entities a query without its own `top` loads at most, over all pages. Defaults to `10000`. */
+  maxEntities?: number;
   /** Additional query parameters appended to every generated request URL. */
   queryParameters?: Map<string, string>;
 }

@@ -9,6 +9,7 @@ import type {
   FeatureProperties,
   GeoJsonFeature,
   Geometry,
+  LoadOptions,
   MqttConnect,
   MqttOptions,
   ObservationData,
@@ -792,7 +793,10 @@ export class MapInterface extends EventTarget {
       //Add the function, with the id as the key
       marker.getData!.push({
         observedProperty: datastream.ObservedProperty?.name ?? "",
-        getData: async (configureQuery: (query: QueryObject) => QueryObject) => {
+        getData: async (
+          configureQuery: (query: QueryObject) => QueryObject,
+          options?: LoadOptions,
+        ) => {
           //Add query
           var datastreamQuery = {
             entityType: "Datastreams",
@@ -803,7 +807,10 @@ export class MapInterface extends EventTarget {
           datastreamQuery = configureQuery(datastreamQuery);
 
           //Get the data
-          const data: ObservationData = await this.api.getGeoJson<DataArray>(datastreamQuery);
+          const data: ObservationData = await this.api.getGeoJson<DataArray>(
+            datastreamQuery,
+            options,
+          );
           //Add unit to the data object
           data.unitOfMeasurement = unitOfMeasurement;
           return data;
