@@ -26,6 +26,9 @@ const DEFAULT_CLUSTER_MIN = 5;
 //Milliseconds the map has to be still before the data is requested
 const DEFAULT_DEBOUNCE_DURATION = 200;
 
+//Entities requested per tile, while no count told us how many there are
+const DEFAULT_MAX_MARKERS_PER_TILE = 1000;
+
 /**
  * Carries the geojson of a zoom level whenever its cached data changed
  */
@@ -588,7 +591,15 @@ export class MapInterface extends EventTarget {
 
               //Load this polygon's markers right away, instead of waiting for the other polygons
               if ((feature.properties.count ?? 0) < this.clusterMin || !this.clusterEnabled) {
-                await this.getMarkers([RING], zoom);
+                //An empty tile has nothing to request, its count already said so
+                if (!this.clusterEnabled || feature.properties.count) {
+                  //Without clustering no count was queried, the polygon still carries its initial 0
+                  await this.getMarkers(
+                    [RING],
+                    zoom,
+                    this.clusterEnabled ? feature.properties.count : undefined,
+                  );
+                }
                 //The count told us this is all of them, so deeper zoom levels can reuse them
                 if (this.clusterEnabled) feature.properties.fetched = true;
               }
@@ -606,12 +617,14 @@ export class MapInterface extends EventTarget {
    * Helper function to get all markers in the given polygons
    * @param toMarker Array of all coordinates of the polygons the markers to get are in
    * @param zoom current zoom level
+   * @param count entities the polygon holds, when a count query already asked for it
    */
-  private async getMarkers(toMarker: Array<CoordinatesList>, zoom: number) {
+  private async getMarkers(toMarker: Array<CoordinatesList>, zoom: number, count?: number) {
     if (toMarker.length != 0) {
       //Remove reference to config.queryObject
       var markerQuery = JSON.parse(JSON.stringify(this.getQuery(zoom)));
-      markerQuery.top = 1000;
+      //A known count is exact, an unknown one falls back to the configured cap
+      markerQuery.top ??= count || (this.config.maxMarkersPerTile ?? DEFAULT_MAX_MARKERS_PER_TILE);
       //The count is already known from the polygon query, counting again only slows the service down
       delete markerQuery.count;
 

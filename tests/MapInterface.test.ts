@@ -93,7 +93,7 @@ describe("MapInterface", () => {
       requests++;
       //Hold one polygon's count open, the others resolve right away
       if (requests == 2) await secondCount;
-      return new Response(JSON.stringify({ value: [], "@iot.count": 0 }));
+      return new Response(JSON.stringify({ value: [], "@iot.count": 1 }));
     });
 
     const mapInterface = new MapInterface(config);
@@ -113,7 +113,7 @@ describe("MapInterface", () => {
     const urls: string[] = [];
     vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
       urls.push(decodeURIComponent(String(url)));
-      return new Response(JSON.stringify({ value: [], "@iot.count": 0 }));
+      return new Response(JSON.stringify({ value: [], "@iot.count": 1 }));
     });
 
     //Even a queryObject that asks for the count only gets it on the polygon query
@@ -270,6 +270,7 @@ describe("MapInterface", () => {
       await mapInterface.loadLayerData(12, boundingBox);
 
       return {
+        requests,
         counted: requests.filter((url) => url.includes("$count=true")).length,
         entities: requests.filter((url) => url.includes("$expand=Datastreams")).length,
         cached: mapInterface.getCached(12).features,
@@ -285,6 +286,46 @@ describe("MapInterface", () => {
     it("resolves a tile below five features into markers, without a clusterMin", async () => {
       const resolved = await tiles(config, 4);
       expect(resolved.entities).toBeGreaterThan(0);
+    });
+
+    it("asks for as many entities as the count promised", async () => {
+      const requests: string[] = [];
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+        requests.push(decodeURIComponent(String(url)));
+        return new Response(JSON.stringify({ value: [], "@iot.count": 3 }));
+      });
+
+      const mapInterface = new MapInterface(config) as any;
+      await mapInterface.loadLayerData(12, boundingBox);
+
+      const entities = requests.filter((url) => url.includes("$expand=Datastreams"));
+      expect(entities.length).toBeGreaterThan(0);
+      expect(entities.every((url) => url.includes("$top=3"))).toBe(true);
+    });
+
+    it("requests nothing for a tile the count reported empty", async () => {
+      const empty = await tiles(config, 0);
+      expect(empty.counted).toBeGreaterThan(0);
+      expect(empty.entities).toBe(0);
+    });
+
+    it("falls back to a thousand entities per tile, without a count", async () => {
+      const off = await tiles({ ...config, cluster: false }, 0);
+      expect(off.entities).toBeGreaterThan(0);
+      expect(off.requests.every((url: string) => url.includes("$top=1000"))).toBe(true);
+    });
+
+    it("caps the entities per tile with maxMarkersPerTile", async () => {
+      const capped = await tiles({ ...config, cluster: false, maxMarkersPerTile: 50 }, 0);
+      expect(capped.requests.every((url: string) => url.includes("$top=50"))).toBe(true);
+    });
+
+    it("keeps a top the queryObject asks for", async () => {
+      const own = await tiles(
+        { ...config, cluster: false, queryObject: { entityType: "Things", top: 20 } },
+        0,
+      );
+      expect(own.requests.every((url: string) => url.includes("$top=20"))).toBe(true);
     });
 
     it("clusters unless the config turns it off", async () => {
