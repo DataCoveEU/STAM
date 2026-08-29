@@ -11,6 +11,8 @@ import type VectorSource from "ol/source/Vector";
 
 declare global {
   var ol: {
+    Map: typeof import("ol/Map").default;
+    View: typeof import("ol/View").default;
     layer: typeof import("ol/layer");
     source: typeof import("ol/source");
     style: typeof import("ol/style");
@@ -436,6 +438,7 @@ class STAM extends ol.layer.Group {
 }
 
 export { STAM };
+export type * from "./types";
 
 /**
  * Creates a stam layer
