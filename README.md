@@ -94,7 +94,7 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `requestDelay`          | Milliseconds between two waves of requests. Each wave sends up to `maxConcurrentRequests`. Defaults to 0.                                |
 | `debounceDuration`      | Milliseconds the map has to be still before its data is requested. Defaults to 200.                                                      |
 | `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
-| `mqtt`                  | Enables MQTT updates when the browser MQTT client is available.                                                                          |
+| `mqtt`                  | Enables MQTT updates. `true` uses the defaults derived from `baseUrl`, an object configures them. See [MQTT](#mqtt).                     |
 | `map`                   | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
 
 Callbacks are available for marker and cluster hover/click events, and for popup close events. A `markerClick` callback may return HTML for the popup. The default popup can request observations through the feature's generated data callbacks:
@@ -109,13 +109,47 @@ const observations = await feature.properties.getData[0].getData((query) => {
 
 ## MQTT
 
-Set `mqtt: true` and load the MQTT browser client before the STAM bundle:
+Set `mqtt: true`. STAM ships [MQTT.js](https://github.com/mqttjs/MQTT.js) and loads it as a separate
+chunk the first time a map enables MQTT, so pages without MQTT never download it.
 
-```html
-<script src="https://unpkg.com/mqtt@5.15.2/dist/mqtt.min.js"></script>
+STAM then connects to `wss://<host of baseUrl>/mqtt` and subscribes to `<last segment of baseUrl>/<entityType>`,
+e.g. `v1.1/Things`. Updates are applied to the matching cached features.
+
+Services that deviate from those defaults are configured with an object instead:
+
+```js
+STAM({
+  baseUrl: "https://sensor.example/v1.1",
+  queryObject: { entityType: "Things" },
+  mqtt: {
+    url: "wss://broker.example:8884/mqtt",
+    options: { username: "sta", password: "secret", clientId: "stam-map" },
+    topicPrefix: "sta/v1.1",
+  },
+});
 ```
 
-STAM subscribes to the MQTT endpoint derived from `baseUrl` and updates matching cached features.
+| Option        | Description                                                                                                                                  |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `url`         | Websocket endpoint of the broker. Defaults to `wss://<host of baseUrl>/mqtt`, `ws` for an http `baseUrl`.                                    |
+| `options`     | Passed to the client's `connect`, typed as the `IClientOptions` of MQTT.js.                                                                  |
+| `topicPrefix` | Prefix the entity type is appended to. Defaults to the last path segment of `baseUrl`. Ignored when `topics` is set.                         |
+| `topics`      | Topics to subscribe to, replacing the derived `<topicPrefix>/<entityType>`. Either an array or a callback receiving the current entity type. |
+| `client`      | A connected client, or a `connect` function. Defaults to the bundled MQTT.js.                                                                |
+
+`MqttClient` and `IClientOptions` are re-exported from the bundles, so a page can type its own client
+without importing `mqtt` itself. With `client` the page controls the connection, and the bundled client
+is never loaded:
+
+```js
+import mqtt from "mqtt";
+
+STAM({
+  baseUrl: "https://sensor.example/v1.1",
+  queryObject: { entityType: "Things" },
+  mqtt: { client: mqtt.connect("wss://broker.example/mqtt", { username: "sta" }) },
+});
+```
 
 ## Development
 

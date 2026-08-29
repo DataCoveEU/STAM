@@ -1,3 +1,5 @@
+import type { IClientOptions, MqttClient } from "mqtt";
+
 export interface QueryObject {
   [key: string]: Array<string> | string | Array<QueryObject> | number | boolean | undefined;
   entityType: string;
@@ -130,6 +132,26 @@ export type PolygonStyle = string | Path | ((feature: GeoJsonFeature) => string 
 /** Cluster styling, or a callback returning it per cluster feature. */
 export type ClusterStyleOption = ClusterStyle | ((feature: GeoJsonFeature) => ClusterStyle);
 
+/** The client and its options, as the bundled `mqtt` package types them */
+export type { IClientOptions, MqttClient } from "mqtt";
+
+/** Connects to a broker, `mqtt.connect` of the `mqtt` package matches it */
+export type MqttConnect = (url: string, options?: IClientOptions) => MqttClient;
+
+/** Everything STAM would otherwise derive from `baseUrl`. */
+export interface MqttOptions {
+  /** Websocket endpoint of the broker. Defaults to `<ws|wss>://<host of baseUrl>/mqtt`. */
+  url?: string;
+  /** Passed to the client's `connect`, the `IClientOptions` of MQTT.js. */
+  options?: IClientOptions;
+  /** Prefix the entity type is appended to. Defaults to the last segment of `baseUrl`, e.g. `v1.1`. */
+  topicPrefix?: string;
+  /** Topics to subscribe to, replacing the derived `<topicPrefix>/<entityType>`. */
+  topics?: Array<string> | ((entityType: string) => string | Array<string>);
+  /** A connected client, or a `connect` creating one. Defaults to the bundled MQTT.js. */
+  client?: MqttClient | MqttConnect;
+}
+
 export interface Config {
   /** Base URL of the SensorThings API service. */
   baseUrl: string;
@@ -143,8 +165,8 @@ export interface Config {
   };
   /** Cache lifetime in seconds. Omitted or falsy: cached data is kept indefinitely. */
   cachingDuration?: number;
-  /** Subscribe to MQTT updates. Defaults to `false`. */
-  mqtt?: boolean;
+  /** Subscribe to MQTT updates. `true` uses the defaults derived from `baseUrl`. Defaults to `false`. */
+  mqtt?: boolean | MqttOptions;
   /** Enables clustering. Defaults to `true`. */
   cluster?: boolean;
   /** Minimum feature count for a cluster to remain displayed. Defaults to `5`. */
