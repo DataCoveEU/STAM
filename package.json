@@ -48,10 +48,9 @@
   },
   "homepage": "https://github.com/DataCoveEU/STAM#readme",
   "devDependencies": {
-    "@types/events": "^3.0.3",
     "@types/leaflet": "^1.9.22",
+    "@vitest/coverage-v8": "^4.1.11",
     "all-contributors-cli": "^6.26.1",
-    "events": "^3.3.0",
     "happy-dom": "^20.11.12",
     "leaflet": "^1.9.4",
     "p-throttle": "^8.1.0",

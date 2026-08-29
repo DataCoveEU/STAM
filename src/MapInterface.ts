@@ -1,6 +1,5 @@
 import { Config, QueryObject, Range, RangeQuery } from "./types";
 import { STAInterface } from "./STAInterface";
-import { EventEmitter } from "events";
 
 declare var mqtt: any;
 
@@ -10,7 +9,16 @@ const DEFAULT_CLUSTER_MIN = 5;
 //Milliseconds the map has to be still before the data is requested
 const DEFAULT_DEBOUNCE_DURATION = 200;
 
-export class MapInterface extends EventEmitter {
+/**
+ * Carries the geojson of a zoom level whenever its cached data changed
+ */
+export class ChangeEvent extends Event {
+  constructor(readonly geoJson: any) {
+    super("change");
+  }
+}
+
+export class MapInterface extends EventTarget {
   config: Config;
   readonly api: STAInterface;
   client: any;
@@ -293,6 +301,18 @@ export class MapInterface extends EventEmitter {
     }
 
     return undefined;
+  }
+
+  /**
+   * Called with the geojson of a zoom level whenever its cached data changed
+   * @param options the options of addEventListener, `once` and `signal` included
+   * @returns a function that removes the listener again
+   */
+  onChange(listener: (geoJson: any) => void, options?: AddEventListenerOptions): () => void {
+    const handler = (event: Event) => listener((event as ChangeEvent).geoJson);
+
+    this.addEventListener("change", handler, options);
+    return () => this.removeEventListener("change", handler, options);
   }
 
   /**
@@ -762,7 +782,7 @@ export class MapInterface extends EventEmitter {
       //Return only the polygons with a higher count as specified
       return feature.properties?.count >= this.clusterMin;
     });
-    this.emit("change", toReturn);
+    this.dispatchEvent(new ChangeEvent(toReturn));
   }
 }
 

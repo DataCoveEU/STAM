@@ -37,7 +37,7 @@ describe("MapInterface", () => {
     const mapInterface = new MapInterface(config);
     vi.spyOn(mapInterface as any, "loadLayerData").mockResolvedValue(undefined);
     const change = vi.fn();
-    mapInterface.on("change", change);
+    mapInterface.onChange(change);
 
     mapInterface.getLayerData(8, boundingBox);
 
@@ -198,5 +198,36 @@ describe("MapInterface", () => {
       .getCached(13)
       .features.filter((feature: any) => feature.properties?.["@iot.id"] != undefined);
     expect(markers.length).toBeGreaterThan(0);
+  });
+
+  it("stops calling a listener that unsubscribed", async () => {
+    vi.useFakeTimers();
+    const mapInterface = new MapInterface(config);
+    vi.spyOn(mapInterface as any, "loadLayerData").mockResolvedValue(undefined);
+
+    const listener = vi.fn();
+    const unsubscribe = mapInterface.onChange(listener);
+    mapInterface.getLayerData(8, boundingBox);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    mapInterface.getLayerData(8, boundingBox);
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops a listener when its abort signal fires", async () => {
+    vi.useFakeTimers();
+    const mapInterface = new MapInterface(config);
+    vi.spyOn(mapInterface as any, "loadLayerData").mockResolvedValue(undefined);
+
+    const listener = vi.fn();
+    const controller = new AbortController();
+    mapInterface.onChange(listener, { signal: controller.signal });
+
+    mapInterface.getLayerData(8, boundingBox);
+    controller.abort();
+    mapInterface.getLayerData(8, boundingBox);
+
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });
