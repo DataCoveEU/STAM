@@ -9,8 +9,15 @@
     "README.md"
   ],
   "exports": {
-    "./leaflet": "./dist/stam-leaflet.js",
-    "./openlayers": "./dist/stam-openlayers.js"
+    "./leaflet": {
+      "types": "./dist/stam-leaflet.d.ts",
+      "default": "./dist/stam-leaflet.js"
+    },
+    "./openlayers": {
+      "types": "./dist/stam-openlayers.d.ts",
+      "default": "./dist/stam-openlayers.js"
+    },
+    "./package.json": "./package.json"
   },
   "type": "module",
   "packageManager": "pnpm@12.0.0",
@@ -26,7 +33,7 @@
     "build": "pnpm tsdown --minify",
     "dev": "node scripts/dev.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc6 --noEmit",
     "watch": "pnpm tsdown --watch",
     "semantic-release": "semantic-release",
     "lint": "oxlint",
@@ -52,10 +59,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/leaflet": "^1.9.22",
-    "@vitest/coverage-v8": "^4.1.11",
     "all-contributors-cli": "^6.26.1",
-    "eslint": "^10.9.1",
-    "eslint-config-prettier": "^10.1.8",
     "globals": "^17.11.0",
     "happy-dom": "^20.11.12",
     "leaflet": "^1.9.4",
@@ -63,12 +67,10 @@
     "oxlint": "^1.80.0",
     "p-throttle": "^8.1.0",
     "picomodal": "^3.0.0",
-    "prettier": "3.8.3",
     "semantic-release": "^25.0.9",
     "tsdown": "0.22.14",
     "tslib": "^2.8.1",
     "typescript": "npm:@typescript/typescript6",
-    "typescript-eslint": "^8.68.0",
     "vitest": "^4.1.6"
   },
   "dependencies": {

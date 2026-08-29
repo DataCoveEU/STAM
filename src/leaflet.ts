@@ -413,6 +413,7 @@ const STAM = function (config: Config): StamLayer {
 };
 
 export { STAM };
+export type * from "./types";
 
 //Adding custom css to head, so that the count tooltipp's background is transparent
 addCss(
