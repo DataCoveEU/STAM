@@ -1,5 +1,5 @@
 import pThrottle from "p-throttle";
-import type { Config, DataArray, Entity, QueryObject, StaResponse } from "./types";
+import type { Config, DataArray, Entity, LoadOptions, QueryObject, StaResponse } from "./types";
 import { QueryGenerator } from "./QueryGenerator";
 
 //Browsers allow about this many parallel connections per host
@@ -7,6 +7,9 @@ const DEFAULT_MAX_CONCURRENT_REQUESTS = 5;
 
 //Requests are not spaced out unless the config asks for it
 const DEFAULT_REQUEST_DELAY = 0;
+
+//Entities a query without its own top loads at most, over all of its pages
+export const DEFAULT_MAX_ENTITIES = 10000;
 
 //A response either carries the entities, or the single entry of a dataArray query
 type Page = Array<Entity> | DataArray;
@@ -24,11 +27,26 @@ function dataArrayOf(response: StaResponse<Page>): DataArray | undefined {
 }
 
 /**
+ * Rows a response holds already
+ */
+function loaded(value: Page): number {
+  return isDataArray(value) ? value.dataArray.length : value.length;
+}
+
+/**
  * How much of the requested top a response holds already. An empty answer ends the paging
  */
 function reached(value: Page): number {
-  const length = isDataArray(value) ? value.dataArray.length : value.length;
+  const length = loaded(value);
   return length == 0 ? Infinity : length;
+}
+
+/**
+ * Drops what a service returned beyond the requested limit
+ */
+function trim(value: Page, limit: number) {
+  if (isDataArray(value)) value.dataArray.length = Math.min(value.dataArray.length, limit);
+  else value.length = Math.min(value.length, limit);
 }
 
 /**
@@ -63,32 +81,40 @@ export class STAInterface {
   /**
    * Queries the service and follows its `@iot.nextLink` pages
    * @param query the query to run
+   * @param options abort signal and progress callback of the caller
    * @returns the merged response, a dataArray query answers with the rows instead of entities
    */
-  async getGeoJson<T = Array<Entity>>(query: QueryObject): Promise<StaResponse<T>> {
-    var limit: number | undefined = query.top;
-    //Only query the given top elements, if a top value is present
-    if (query.top == undefined || query.top == null) {
-      query.top = 10000;
-    }
+  async getGeoJson<T = Array<Entity>>(
+    query: QueryObject,
+    options?: LoadOptions,
+  ): Promise<StaResponse<T>> {
+    //A query without a top of its own stops at the configured maximum, instead of paging on forever
+    const LIMIT = query.top ?? this.config.maxEntities ?? DEFAULT_MAX_ENTITIES;
 
     //Clone
     query = JSON.parse(JSON.stringify(query));
+    query.top ??= LIMIT;
+
+    //The next links go to the same service, so they carry the configured options as well
+    const FETCH_OPTIONS: RequestInit | undefined = options?.signal
+      ? { ...this.config.fetchOptions, signal: options.signal }
+      : this.config.fetchOptions;
 
     //Generate url
     const url = `${this.config.baseUrl}/${new QueryGenerator(query, this.config).toString()}`;
     //get data
-    const data = await this.fetchJson(url, this.config.fetchOptions);
+    const data = await this.fetchJson(url, FETCH_OPTIONS);
 
     //A dataArray query answers with a single entry that carries all the rows
     const rows = dataArrayOf(data);
     if (rows) data.value = rows;
 
     var link = data["@iot.nextLink"];
+    options?.onProgress?.(loaded(data.value));
 
-    //Get data as long as a next link is present
-    while (link && (limit == undefined || reached(data.value) < limit)) {
-      const page = await this.fetchJson(link);
+    //Get data as long as a next link is present and the limit is not reached
+    while (link && reached(data.value) < LIMIT) {
+      const page = await this.fetchJson(link, FETCH_OPTIONS);
       const pageRows = dataArrayOf(page);
 
       if (pageRows && isDataArray(data.value)) {
@@ -100,7 +126,11 @@ export class STAInterface {
 
       //Update next link
       link = page["@iot.nextLink"];
+      options?.onProgress?.(loaded(data.value));
     }
+
+    //A service that ignores the top may hand out more than was asked for
+    trim(data.value, LIMIT);
 
     return data as StaResponse<T>;
   }

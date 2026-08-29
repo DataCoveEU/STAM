@@ -38,12 +38,94 @@ describe("STAInterface", () => {
       "https://sensor.example/v1.1/Things?$top=3",
       undefined,
     );
-    //The next link is requested without the configured fetch options
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       "https://sensor.example/v1.1/Things?$skip=2",
       undefined,
     );
+  });
+
+  it("sends the configured fetch options with every page", async () => {
+    const options = { headers: { Authorization: "Bearer token" } };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            value: [{ id: 1 }],
+            "@iot.nextLink": "https://sensor.example/v1.1/Things?$skip=1",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ value: [{ id: 2 }] })));
+
+    await new STAInterface({ ...config, fetchOptions: options }).getGeoJson({
+      entityType: "Things",
+      top: 2,
+    });
+
+    expect(fetchMock.mock.calls.every((call) => call[1] == options)).toBe(true);
+  });
+
+  it("stops paging at maxEntities, instead of following every next link", async () => {
+    var page = 0;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      page++;
+      //A service that always offers another page
+      return new Response(
+        JSON.stringify({
+          value: [{ id: page }, { id: page }],
+          "@iot.nextLink": `https://sensor.example/v1.1/Things?$skip=${page * 2}`,
+        }),
+      );
+    });
+
+    const result = await new STAInterface({ ...config, maxEntities: 6 }).getGeoJson({
+      entityType: "Things",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect((result.value as Array<unknown>).length).toBe(6);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("$top=6");
+  });
+
+  it("reports the rows of every page while they load", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            value: [{ id: 1 }, { id: 2 }],
+            "@iot.nextLink": "https://sensor.example/v1.1/Things?$skip=2",
+          }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ value: [{ id: 3 }] })));
+
+    const loaded: Array<number> = [];
+    await new STAInterface(config).getGeoJson(
+      { entityType: "Things", top: 3 },
+      { onProgress: (rows) => loaded.push(rows) },
+    );
+
+    expect(loaded).toEqual([2, 3]);
+  });
+
+  it("aborts the pages that are still to come", async () => {
+    const controller = new AbortController();
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_url: any, init: any) => {
+      if (init?.signal?.aborted) throw new Error("aborted");
+      controller.abort();
+      return new Response(
+        JSON.stringify({
+          value: [{ id: 1 }],
+          "@iot.nextLink": "https://sensor.example/v1.1/Things?$skip=1",
+        }),
+      );
+    });
+
+    await expect(
+      new STAInterface(config).getGeoJson({ entityType: "Things" }, { signal: controller.signal }),
+    ).rejects.toThrow();
   });
 
   it("merges dataArray pages", async () => {
