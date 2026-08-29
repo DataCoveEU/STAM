@@ -12,20 +12,20 @@ STAM (SensorThings API Map) displays `Things` or `FeaturesOfInterest` from an OG
 
 The generated bundles externalize Leaflet and OpenLayers. Load the matching library and its CSS before creating a STAM layer.
 
-## Installation
+## Usage
 
-```sh
-pnpm add sta-map
+Load the map library, then import the matching
+bundle as an ES module, from a CDN or from your own host:
+
+```html
+<script type="module">
+  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-leaflet.js";
+</script>
 ```
 
-The package exposes two browser bundles:
-
-```js
-import { STAM } from "sta-map/leaflet";
-import { STAM } from "sta-map/openlayers";
-```
-
-For direct browser imports, use the published files at `dist/stam-leaflet.js` and `dist/stam-openlayers.js`.
+The two bundles are `dist/stam-leaflet.js` and `dist/stam-openlayers.js`. They carry everything except
+Leaflet and OpenLayers, which the page provides as the globals `L` and `ol`. MQTT.js sits in a chunk
+next to the bundle and is only fetched when `mqtt` is enabled, so serve the whole `dist` directory.
 
 ## Leaflet
 
@@ -54,24 +54,29 @@ For direct browser imports, use the published files at `dist/stam-leaflet.js` an
 
 ## OpenLayers
 
-```js
-import { STAM } from "sta-map/openlayers";
+```html
+<link rel="stylesheet" href="https://unpkg.com/ol@10.10.0/ol.css" />
+<script src="https://unpkg.com/ol@10.10.0/dist/ol.js"></script>
 
-const map = new ol.Map({
-  target: "map",
-  layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
-  view: new ol.View({ center: [808701, 6493627], zoom: 8 }),
-});
+<script type="module">
+  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-openlayers.js";
 
-map.addLayer(
-  new STAM({
-    baseUrl: "https://example.com/v1.1",
-    queryObject: { entityType: "Things" },
-    cluster: true,
-    clusterMin: 5,
-    map,
-  }),
-);
+  const map = new ol.Map({
+    target: "map",
+    layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+    view: new ol.View({ center: [808701, 6493627], zoom: 8 }),
+  });
+
+  map.addLayer(
+    new STAM({
+      baseUrl: "https://example.com/v1.1",
+      queryObject: { entityType: "Things" },
+      cluster: true,
+      clusterMin: 5,
+      map,
+    }),
+  );
+</script>
 ```
 
 The OpenLayers bundle expects the global `ol` build and the map instance in `config.map`.
@@ -94,7 +99,8 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `maxConcurrentRequests` | Requests sent per `requestDelay`. Without a delay the requests are not limited. Defaults to 5.                                           |
 | `requestDelay`          | Milliseconds between two waves of requests. Each wave sends up to `maxConcurrentRequests`. Defaults to 0.                                |
 | `debounceDuration`      | Milliseconds the map has to be still before its data is requested. Defaults to 200.                                                      |
-| `maxEntities`           | Entities a query without its own `top` loads at most, over all pages. Defaults to 10000.                                                 |
+| `maxEntities`           | Entities a query without its own `top` loads at most, over all pages. Defaults to 1000.                                                  |
+| `pageSize`              | Entities asked for per request, the pages are merged until the limit. Defaults to 1000.                                                  |
 | `queryParameters`       | `Map<string, string>` appended to every generated request URL.                                                                           |
 | `mqtt`                  | Enables MQTT updates. `true` uses the defaults derived from `baseUrl`, an object configures them. See [MQTT](#mqtt).                     |
 | `map`                   | Required by the OpenLayers bundle; ignored by Leaflet.                                                                                   |
@@ -108,11 +114,13 @@ const observations = await feature.properties.getData[0].getData(
     query.orderby = "phenomenonTime asc";
     return query;
   },
-  { signal: controller.signal, onProgress: (rows) => console.log(rows) },
+  { signal: controller.signal, onPage: (page, rows) => console.log(page, rows) },
 );
 ```
 
-A query without a `top` of its own stops at `maxEntities` rows instead of following every `@iot.nextLink`, so a datastream with millions of observations cannot page on forever. The default popup shows how many rows are in already, says so when the limit cut the series off, and aborts the pending pages when it is closed.
+Requests ask for `pageSize` entities at a time and merge the pages until the query's own `top`, or `maxEntities`, is reached — so no single request asks a service for everything, and a datastream with millions of observations cannot page on forever.
+
+The default popup plots every page as it arrives, growing the trace with `Plotly.extendTraces` instead of waiting for the last page, and aborts the pending pages when it is closed. Panning or zooming the plot past the observations it holds loads that time range, the way the map loads tiles: STAM listens for `plotly_relayout`, requests only the part of the view that is not loaded yet (`phenomenonTime ge … and le …`), and prepends or appends it to the trace. A range that answered with nothing is not requested again.
 
 ## MQTT
 
@@ -148,14 +156,18 @@ STAM({
 without importing `mqtt` itself. With `client` the page controls the connection, and the bundled client
 is never loaded:
 
-```js
-import mqtt from "mqtt";
+```html
+<script src="https://unpkg.com/mqtt@5.15.2/dist/mqtt.min.js"></script>
 
-STAM({
-  baseUrl: "https://sensor.example/v1.1",
-  queryObject: { entityType: "Things" },
-  mqtt: { client: mqtt.connect("wss://broker.example/mqtt", { username: "sta" }) },
-});
+<script type="module">
+  import { STAM } from "https://unpkg.com/sta-map@latest/dist/stam-leaflet.js";
+
+  STAM({
+    baseUrl: "https://sensor.example/v1.1",
+    queryObject: { entityType: "Things" },
+    mqtt: { client: mqtt.connect("wss://broker.example/mqtt", { username: "sta" }) },
+  });
+</script>
 ```
 
 ## Development
