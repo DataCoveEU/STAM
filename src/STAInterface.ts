@@ -1,5 +1,13 @@
 import pThrottle from "p-throttle";
-import type { Config, DataArray, Entity, LoadOptions, QueryObject, StaResponse } from "./types";
+import type {
+  Config,
+  DataArray,
+  Entity,
+  LoadedPage,
+  LoadOptions,
+  QueryObject,
+  StaResponse,
+} from "./types";
 import { QueryGenerator } from "./QueryGenerator";
 
 //Browsers allow about this many parallel connections per host
@@ -9,10 +17,13 @@ const DEFAULT_MAX_CONCURRENT_REQUESTS = 5;
 const DEFAULT_REQUEST_DELAY = 0;
 
 //Entities a query without its own top loads at most, over all of its pages
-export const DEFAULT_MAX_ENTITIES = 10000;
+export const DEFAULT_MAX_ENTITIES = 1000;
+
+//Entities asked for per request, the pages are merged until the limit is reached
+const DEFAULT_PAGE_SIZE = 1000;
 
 //A response either carries the entities, or the single entry of a dataArray query
-type Page = Array<Entity> | DataArray;
+type Page = LoadedPage;
 
 function isDataArray(value: Page): value is DataArray {
   return !Array.isArray(value) && Array.isArray(value?.dataArray);
@@ -39,6 +50,13 @@ function loaded(value: Page): number {
 function reached(value: Page): number {
   const length = loaded(value);
   return length == 0 ? Infinity : length;
+}
+
+/**
+ * A page of its own, the first one is the array every later page is appended to
+ */
+function copy(value: Page): Page {
+  return isDataArray(value) ? { ...value, dataArray: [...value.dataArray] } : [...value];
 }
 
 /**
@@ -93,7 +111,8 @@ export class STAInterface {
 
     //Clone
     query = JSON.parse(JSON.stringify(query));
-    query.top ??= LIMIT;
+    //One page per request, instead of asking a service for the whole limit at once
+    query.top = Math.min(LIMIT, this.config.pageSize ?? DEFAULT_PAGE_SIZE);
 
     //The next links go to the same service, so they carry the configured options as well
     const FETCH_OPTIONS: RequestInit | undefined = options?.signal
@@ -110,7 +129,7 @@ export class STAInterface {
     if (rows) data.value = rows;
 
     var link = data["@iot.nextLink"];
-    options?.onProgress?.(loaded(data.value));
+    if (options?.onPage) options.onPage(copy(data.value), loaded(data.value));
 
     //Get data as long as a next link is present and the limit is not reached
     while (link && reached(data.value) < LIMIT) {
@@ -126,7 +145,8 @@ export class STAInterface {
 
       //Update next link
       link = page["@iot.nextLink"];
-      options?.onProgress?.(loaded(data.value));
+      //Only the rows of this page, the caller already saw the ones before
+      options?.onPage?.(pageRows ?? page.value, loaded(data.value));
     }
 
     //A service that ignores the top may hand out more than was asked for

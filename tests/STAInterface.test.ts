@@ -101,12 +101,20 @@ describe("STAInterface", () => {
       )
       .mockResolvedValueOnce(new Response(JSON.stringify({ value: [{ id: 3 }] })));
 
+    const pages: Array<Array<unknown>> = [];
     const loaded: Array<number> = [];
     await new STAInterface(config).getGeoJson(
       { entityType: "Things", top: 3 },
-      { onProgress: (rows) => loaded.push(rows) },
+      {
+        onPage: (page, rows) => {
+          pages.push(page as Array<unknown>);
+          loaded.push(rows);
+        },
+      },
     );
 
+    //Every page carries its own rows, the count is the total
+    expect(pages).toEqual([[{ id: 1 }, { id: 2 }], [{ id: 3 }]]);
     expect(loaded).toEqual([2, 3]);
   });
 
@@ -126,6 +134,33 @@ describe("STAInterface", () => {
     await expect(
       new STAInterface(config).getGeoJson({ entityType: "Things" }, { signal: controller.signal }),
     ).rejects.toThrow();
+  });
+
+  it("pages a service that honours the requested top, instead of stopping after it", async () => {
+    var page = 0;
+    const urls: Array<string> = [];
+    //A service that answers with exactly as many rows as were asked for
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+      urls.push(String(url));
+      page++;
+      const TOP = Number(new URL(String(url)).searchParams.get("$top"));
+      return new Response(
+        JSON.stringify({
+          value: Array.from({ length: TOP }, (_, index) => ({ id: page * TOP + index })),
+          "@iot.nextLink": `https://sensor.example/v1.1/Things?$top=${TOP}&$skip=${page * TOP}`,
+        }),
+      );
+    });
+
+    const result = await new STAInterface({
+      ...config,
+      maxEntities: 25,
+      pageSize: 10,
+    }).getGeoJson({ entityType: "Things" });
+
+    expect(urls[0]).toContain("$top=10");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect((result.value as Array<unknown>).length).toBe(25);
   });
 
   it("merges dataArray pages", async () => {

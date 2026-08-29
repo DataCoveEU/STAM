@@ -363,8 +363,9 @@ describe("MapInterface", () => {
 
     //Loads a tile and waits for the subscription, which does not hold the data back
     const load = async (mqtt: Config["mqtt"], baseUrl = config.baseUrl) => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(JSON.stringify({ value: [], "@iot.count": 0 })),
+      //A Response body is readable once, so every tile gets one of its own
+      vi.spyOn(globalThis, "fetch").mockImplementation(
+        async () => new Response(JSON.stringify({ value: [], "@iot.count": 0 })),
       );
 
       const mapInterface = new MapInterface({ ...config, baseUrl, mqtt }) as any;
