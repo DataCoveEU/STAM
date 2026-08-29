@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { STAInterface } from "../src/STAInterface";
-import type { Config, QueryObject } from "../src/types";
+import type { Config, DataArray, QueryObject } from "../src/types";
 
 const config: Config = {
   baseUrl: "https://sensor.example/v1.1",
@@ -60,7 +60,7 @@ describe("STAInterface", () => {
         new Response(JSON.stringify({ value: [{ dataArray: [["id", "time", 2]] }] })),
       );
 
-    const result = await new STAInterface(config).getGeoJson({
+    const result = await new STAInterface(config).getGeoJson<DataArray>({
       entityType: "Datastreams",
       resultFormat: "dataArray",
     });
@@ -90,5 +90,22 @@ describe("STAInterface", () => {
     expect(elapsed[2]).toBeGreaterThanOrEqual(29);
     expect(elapsed[3] - elapsed[2]).toBeLessThan(29);
     expect(elapsed[4]).toBeGreaterThanOrEqual(59);
+  });
+
+  it("does not space the requests out without a request delay", async () => {
+    const sentAt: number[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      sentAt.push(Date.now());
+      return new Response(JSON.stringify({ value: [{ id: 1 }] }));
+    });
+
+    //maxConcurrentRequests alone throttles nothing, it is the width of a wave
+    const api = new STAInterface({ ...config, maxConcurrentRequests: 2 });
+    await Promise.all(
+      Array.from({ length: 6 }, (_, id) => api.getGeoJson({ entityType: "Things", id })),
+    );
+
+    expect(sentAt).toHaveLength(6);
+    expect(sentAt[5] - sentAt[0]).toBeLessThan(20);
   });
 });

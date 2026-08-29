@@ -2,15 +2,53 @@
 import { textToMarker } from "./leaflet/markers";
 import { MapInterface } from "./MapInterface";
 import "./leaflet/realtime";
-import type { Config, ClusterStyle } from "./types";
+import type {
+  ClusterStyle,
+  Config,
+  FeatureCollection,
+  GeoJsonFeature,
+  Path,
+  PathStyle,
+} from "./types";
 import { addCss, addTransparentBackground, createDefaultPopup } from "./utils";
 
 declare global {
   namespace L {
-    var realtime: any;
-    var Realtime: any;
+    var realtime: (source: RealtimeSource, options: RealtimeOptions) => RealtimeLayer;
+    var Realtime: new (source: RealtimeSource, options: RealtimeOptions) => RealtimeLayer;
   }
 }
+
+/** Hands the current features to the realtime layer whenever it polls */
+type RealtimeSource = (resolve: (geoJson: FeatureCollection) => void, reject: () => void) => void;
+
+interface RealtimeOptions {
+  onEachFeature: (feature: GeoJsonFeature, layer: StyledLayer) => void;
+  pointToLayer: (feature: GeoJsonFeature, latlng: L.LatLng) => L.Layer;
+  getFeatureId: (feature: GeoJsonFeature) => string | number;
+  style?: (feature: GeoJsonFeature) => PathStyle | string | undefined;
+  interval: number;
+}
+
+interface RealtimeLayer extends L.Layer {
+  stop(): void;
+}
+
+/** A geojson feature, with the style STAM cached on it */
+type StyledFeature = GeoJsonFeature & {
+  _clusterStyleCache?: { style?: ClusterStyle };
+  _polygonStyleCache?: { style?: PathStyle | string };
+};
+
+/** The STAM layer itself, a layer group that knows the map it sits on */
+type StamLayer = L.LayerGroup & { _map?: L.Map };
+
+/** A leaflet layer of a feature, only vector layers can be styled */
+type StyledLayer = L.Layer & {
+  feature?: StyledFeature;
+  setStyle?: (style: PathStyle) => void;
+  getBounds?: () => L.LatLngBounds;
+};
 
 //Add the style of the loader
 addCss(
@@ -18,18 +56,19 @@ addCss(
 );
 
 //Layer that represents all count circles and tooltips
-let countLayer: any;
-let geojsonLayer: any;
+let countLayer: L.LayerGroup;
+let geojsonLayer: RealtimeLayer;
 //Extend a LayerGroup
 const STAMLayer = L.LayerGroup.extend({
   initialize: function (config: Config) {
     const mapInterface = new MapInterface(config);
 
-    let highlight: any;
+    let highlight: StyledLayer | null;
 
-    let cache: any = {
+    let cache: FeatureCollection = {
       type: "FeatureCollection",
       features: [],
+      zoom: 0,
     };
 
     //Default style
@@ -45,7 +84,7 @@ const STAMLayer = L.LayerGroup.extend({
     };
 
     //Used for setting the style of a polygon when it is hovered
-    const setHighlight = function (layer: any) {
+    const setHighlight = function (layer: StyledLayer) {
       // Check if something's highlighted, if so unset highlight
       if (highlight) {
         unsetHighlight(highlight);
@@ -54,54 +93,54 @@ const STAMLayer = L.LayerGroup.extend({
       //Get the style from the config
       const configStyle =
         typeof config.clusterStyle == "function"
-          ? ((feature: any) => {
+          ? ((feature: StyledFeature) => {
               if (!feature._clusterStyleCache) {
                 feature._clusterStyleCache = {
                   style: config.clusterStyle(feature),
                 };
               }
               return feature._clusterStyleCache.style?.polygon.hover;
-            })(layer.feature)
+            })(layer.feature!)
           : (config.clusterStyle as ClusterStyle)?.polygon.hover;
 
       //Add a transparent background, if no background was set
       addTransparentBackground(configStyle);
 
       // Set highlight style on layer and store to variable
-      layer.setStyle(configStyle ?? style.highlight);
+      layer.setStyle?.(configStyle ?? style.highlight);
       highlight = layer;
     };
 
     //Remove the style after the mouse hovered over a polygon
-    const unsetHighlight = function (layer: any) {
+    const unsetHighlight = function (layer: StyledLayer) {
       //Get the style from the config
       const configStyle =
         typeof config.clusterStyle == "function"
-          ? ((feature: any) => {
+          ? ((feature: StyledFeature) => {
               if (!feature._clusterStyleCache) {
                 feature._clusterStyleCache = {
                   style: config.clusterStyle(feature),
                 };
               }
               return feature._clusterStyleCache.style?.polygon.default;
-            })(layer.feature)
+            })(layer.feature!)
           : (config.clusterStyle as ClusterStyle)?.polygon.default;
 
       //Add a transparent background, if no background was set
       addTransparentBackground(configStyle);
 
       // Set default style and clear variable
-      layer.setStyle(configStyle ?? style.default);
+      layer.setStyle?.(configStyle ?? style.default);
       highlight = null;
     };
 
-    let initialBounds: any = null;
+    let initialBounds: L.LatLngBounds | null = null;
 
     //Everything the layer registered on the map, released again when it is removed
     let release: Array<() => void> = [];
 
     //Called when the layer is added to the map
-    this.on("add", function (this: any) {
+    this.on("add", function (this: StamLayer) {
       if (this._map != undefined) {
         const map = this._map;
 
@@ -110,7 +149,7 @@ const STAMLayer = L.LayerGroup.extend({
         countLayer = L.layerGroup();
 
         //Called on every feature of the map
-        const onEachFeature = (feature: any, layer: any) => {
+        const onEachFeature = (feature: GeoJsonFeature, layer: StyledLayer) => {
           //Check if a polygon is cluster generated by the library and a polygon
           if (feature.geometry?.type == "Polygon" && feature.properties.count) {
             //Check for mouse hover
@@ -130,32 +169,32 @@ const STAMLayer = L.LayerGroup.extend({
               if (config.clusterClick) {
                 return config.clusterClick(feature);
               }
-              map.fitBounds(layer.getBounds());
+              map.fitBounds(layer.getBounds!());
             });
 
             //Get the style from the config
             const configStyle =
               typeof config.clusterStyle == "function"
-                ? ((feature: any) => {
+                ? ((feature: StyledFeature) => {
                     if (!feature._clusterStyleCache) {
                       feature._clusterStyleCache = {
                         style: config.clusterStyle(feature),
                       };
                     }
                     return feature._clusterStyleCache.style?.polygon.default;
-                  })(layer.feature)
+                  })(layer.feature!)
                 : (config.clusterStyle as ClusterStyle)?.polygon.default;
 
             //Add a transparent background, if no background was set
             addTransparentBackground(configStyle);
 
             //Set the default style of a polygon
-            layer.setStyle(configStyle ?? style.default);
+            layer.setStyle?.(configStyle ?? style.default);
 
             //Get the bounds and calculate the center of the polygon
-            const bounds = layer.getBounds();
-            const lat = (bounds._northEast.lat + bounds._southWest.lat) / 2;
-            const lng = (bounds._northEast.lng + bounds._southWest.lng) / 2;
+            const bounds = layer.getBounds!();
+            const lat = (bounds.getNorthEast().lat + bounds.getSouthWest().lat) / 2;
+            const lng = (bounds.getNorthEast().lng + bounds.getSouthWest().lng) / 2;
 
             //Position a circle in the center
             const circle = L.circleMarker(L.latLng(lat, lng), {
@@ -182,9 +221,9 @@ const STAMLayer = L.LayerGroup.extend({
                 //Bind popup with functions return if present
                 if (config.markerClick) {
                   feature.properties.closeMarker = () => {
-                    layer.bindPopup(out).closePopup();
+                    layer.bindPopup(out!).closePopup();
                   };
-                  const out = config.markerClick(feature);
+                  const out = config.markerClick(feature) as string | HTMLElement | undefined;
                   if (out) {
                     defaultPopup = false;
                     layer.bindPopup(out).openPopup();
@@ -200,7 +239,7 @@ const STAMLayer = L.LayerGroup.extend({
               } else {
                 //markerClick is only called the first time a marker has been clicked
                 //config.markerClick(feature);
-                layer.getPopup().openPopup();
+                layer.getPopup()!.openPopup();
               }
             });
 
@@ -220,7 +259,7 @@ const STAMLayer = L.LayerGroup.extend({
         };
 
         //Used for marker styling
-        const pointToLayer = function (feature: any, latlng: any) {
+        const pointToLayer = function (feature: GeoJsonFeature, latlng: L.LatLng) {
           if (typeof config.markerStyle == "function") {
             const color = config.markerStyle(feature);
             //A style function may return the color directly or as a promise
@@ -244,9 +283,11 @@ const STAMLayer = L.LayerGroup.extend({
 
         // The polygonStyle should only be applied to Locations for Features from the STA service
         // not to generated squares
-        let styleFunction: any = undefined;
+        let styleFunction:
+          | ((feature: GeoJsonFeature) => PathStyle | string | undefined)
+          | undefined = undefined;
         if (typeof config.polygonStyle == "function") {
-          styleFunction = (feature: any) => {
+          styleFunction = (feature: StyledFeature) => {
             if (feature.geometry?.type == "Polygon" && feature.properties.count) {
               return undefined;
             }
@@ -264,27 +305,30 @@ const STAMLayer = L.LayerGroup.extend({
             return feature._polygonStyleCache.style;
           };
         } else if (config.polygonStyle) {
-          styleFunction = function (feature: any) {
+          //The branch above took the function, so this is the style itself
+          const polygonStyle = config.polygonStyle as string | Path;
+
+          styleFunction = function (feature: GeoJsonFeature) {
             if (feature.geometry?.type == "Polygon" && feature.properties.count) {
               return undefined;
             }
-            return config.polygonStyle;
+            return polygonStyle;
           };
         }
 
         //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating
-        const onLayerAdd = function (this: any) {
+        const onLayerAdd = function (this: L.Map) {
           map.off("layeradd", onLayerAdd);
 
           //Create a geojson layer
           geojsonLayer = L.realtime(
-            function (resolve: any, reject: any) {
+            function (resolve: (geoJson: FeatureCollection) => void) {
               resolve(cache);
             },
             {
               onEachFeature,
               pointToLayer,
-              getFeatureId: function (geojson: any) {
+              getFeatureId: function (geojson: GeoJsonFeature) {
                 //Prevent style reset
                 if (highlight) setHighlight(highlight);
                 //Return id if possible
@@ -310,10 +354,10 @@ const STAMLayer = L.LayerGroup.extend({
           //Initiate the layer group with the current bounds and zoom level
           const bounds = map.getBounds();
           mapInterface.getLayerData(map.getZoom(), [
-            bounds._northEast.lng,
-            bounds._northEast.lat,
-            bounds._southWest.lng,
-            bounds._southWest.lat,
+            bounds.getNorthEast().lng,
+            bounds.getNorthEast().lat,
+            bounds.getSouthWest().lng,
+            bounds.getSouthWest().lat,
           ]);
         };
         map.on("layeradd", onLayerAdd);
@@ -330,16 +374,16 @@ const STAMLayer = L.LayerGroup.extend({
 
           //add a new layer and remove all old layers
           mapInterface.getLayerData(map.getZoom(), [
-            bounds._northEast.lng,
-            bounds._northEast.lat,
-            bounds._southWest.lng,
-            bounds._southWest.lat,
+            bounds.getNorthEast().lng,
+            bounds.getNorthEast().lat,
+            bounds.getSouthWest().lng,
+            bounds.getSouthWest().lat,
           ]);
         };
         map.on("moveend", onMoveEnd);
 
         release = [
-          mapInterface.onChange((geojson: any) => {
+          mapInterface.onChange((geojson) => {
             if (geojson.zoom == zoom) {
               cache = geojson;
             }
@@ -362,9 +406,9 @@ const STAMLayer = L.LayerGroup.extend({
       release = [];
     });
   },
-}) as any;
+}) as new (config: Config) => StamLayer;
 
-const STAM = function (config: Config) {
+const STAM = function (config: Config): StamLayer {
   return new STAMLayer(config);
 };
 

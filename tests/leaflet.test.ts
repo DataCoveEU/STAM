@@ -172,4 +172,55 @@ describe("leaflet", () => {
       expect(markers(map).length).toBe(2);
     });
   });
+
+  describe("callbacks", () => {
+    const withConfig = async (extra: Partial<Config>) => {
+      map.removeLayer(map._stam);
+      map._stam = STAM({ ...config, ...extra, map });
+      map._stam.addTo(map);
+
+      await move(map, 2);
+      return markers(map)[0];
+    };
+
+    it("takes the color a style function returns", async () => {
+      const marker = await withConfig({ markerStyle: () => "violet" });
+      expect(marker.options.icon.options.iconUrl).toContain("marker-icon-2x-violet");
+    });
+
+    it("takes the color a style function resolves to", async () => {
+      const marker = await withConfig({ markerStyle: async () => "gold" });
+
+      //The marker is drawn first and gets its icon once the color arrives
+      await vi.waitFor(() =>
+        expect(marker.options.icon.options.iconUrl).toContain("marker-icon-2x-gold"),
+      );
+    });
+
+    it("shows what markerClick returns instead of the default popup", async () => {
+      const marker = await withConfig({ markerClick: () => "<b>own popup</b>" });
+
+      marker.fire("click");
+      expect(marker.getPopup().getContent()).toBe("<b>own popup</b>");
+    });
+
+    it("keeps the default popup when markerClick returns nothing", async () => {
+      const markerClick = vi.fn();
+      const marker = await withConfig({ markerClick });
+
+      marker.fire("click");
+      expect(markerClick).toHaveBeenCalledTimes(1);
+      //A default popup is built from the feature itself
+      expect(marker.getPopup().getContent()).toBeInstanceOf(HTMLElement);
+    });
+
+    it("calls popupClose when the popup closes", async () => {
+      const popupClose = vi.fn();
+      const marker = await withConfig({ popupClose, markerClick: () => "<b>own</b>" });
+
+      marker.fire("click");
+      marker.fire("popupclose");
+      expect(popupClose).toHaveBeenCalledTimes(1);
+    });
+  });
 });

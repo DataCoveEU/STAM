@@ -1,7 +1,29 @@
-import { Config, QueryObject, Range, RangeQuery } from "./types";
+import type {
+  Config,
+  Coordinates,
+  CoordinatesList,
+  DataArray,
+  Datastream,
+  Entity,
+  FeatureCollection,
+  FeatureProperties,
+  GeoJsonFeature,
+  Geometry,
+  ObservationData,
+  QueryObject,
+  Range,
+  RangeQuery,
+  StaResponse,
+} from "./types";
 import { STAInterface } from "./STAInterface";
 
-declare var mqtt: any;
+/** The browser mqtt client, as the consuming page loads it */
+interface MqttClient {
+  on(event: "message", listener: (topic: string, message: { toString(): string }) => void): void;
+  subscribe(topics: Array<string>, callback: (error: unknown) => void): void;
+}
+
+declare var mqtt: { connect(url: string): MqttClient } | undefined;
 
 //Used when the config does not specify a minimum cluster size
 const DEFAULT_CLUSTER_MIN = 5;
@@ -13,7 +35,7 @@ const DEFAULT_DEBOUNCE_DURATION = 200;
  * Carries the geojson of a zoom level whenever its cached data changed
  */
 export class ChangeEvent extends Event {
-  constructor(readonly geoJson: any) {
+  constructor(readonly geoJson: FeatureCollection) {
     super("change");
   }
 }
@@ -21,7 +43,7 @@ export class ChangeEvent extends Event {
 export class MapInterface extends EventTarget {
   config: Config;
   readonly api: STAInterface;
-  client: any;
+  client: MqttClient | undefined;
   lastZoom: number;
 
   //Stores the cached geojson
@@ -50,35 +72,33 @@ export class MapInterface extends EventTarget {
     if (typeof mqtt !== "undefined" && config.mqtt) {
       var url = new URL(config.baseUrl);
       //Connect to server
-      this.client = mqtt.connect(`wss://${url.hostname}/mqtt`);
+      this.client = mqtt!.connect(`wss://${url.hostname}/mqtt`);
 
+      console.log("Connecting to MQTT server at", `wss://${url.hostname}/mqtt`);
       //Receive updates from server
       this.client.on(
         "message",
-        function (this: MapInterface, topic: any, message: any) {
+        function (this: MapInterface, topic: string, message: { toString(): string }) {
+          console.log("Change", topic, message.toString());
           // parse message
-          var marker = JSON.parse(message.toString());
-          var geoJson: any;
+          const marker: Entity = JSON.parse(message.toString());
           //Check for the entityType
-          geoJson = marker.feature;
+          const location = marker.feature as Geometry;
 
           //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties
-          if (geoJson.type != "Feature") {
-            geoJson = {
-              type: "Feature",
-              geometry: geoJson,
-              properties: geoJson.properties,
-            };
-          }
+          const geoJson: GeoJsonFeature =
+            location.type == "Feature"
+              ? (location as unknown as GeoJsonFeature)
+              : { type: "Feature", geometry: location, properties: {} };
 
           delete marker.Locations;
 
           //Add the properties
-          geoJson.properties = marker;
+          geoJson.properties = marker as FeatureProperties;
 
           //Update items in cache
           this.cache = this.cache.map((e: CacheObject) => {
-            if ((e.geoJson as any).properties["@iot.id"] == marker["@iot.id"]) {
+            if (e.geoJson.properties["@iot.id"] == marker["@iot.id"]) {
               e.geoJson = geoJson;
               e.timestamp = new Date();
             }
@@ -145,7 +165,7 @@ export class MapInterface extends EventTarget {
    * @param zoom current zoom level
    * @returns object with latitude and longitude of the OSM tile's upper left corner
    */
-  coordinatesToOsm(coordinate: any, zoom: number) {
+  coordinatesToOsm(coordinate: LatLng, zoom: number): LatLng {
     var lat = this.tile2long(this.long2tile(coordinate.lat, zoom), zoom);
     var lng = this.tile2lat(this.lat2tile(coordinate.lng, zoom), zoom);
     return {
@@ -160,7 +180,7 @@ export class MapInterface extends EventTarget {
    * @param zoom current zoom level
    * @returns object with latitude and longitude of the OSM tile's bottom right corner
    */
-  coordinatesToOsmBottom(coordinate: any, zoom: number) {
+  coordinatesToOsmBottom(coordinate: LatLng, zoom: number): LatLng {
     var lat = this.tile2long(this.long2tile(coordinate.lat, zoom) + 1, zoom);
     var lng = this.tile2lat(this.lat2tile(coordinate.lng, zoom) + 1, zoom);
     return {
@@ -207,7 +227,7 @@ export class MapInterface extends EventTarget {
    * @param y tile row
    * @param zoom zoom level the tile belongs to
    */
-  private tileRing(x: number, y: number, zoom: number) {
+  private tileRing(x: number, y: number, zoom: number): CoordinatesList {
     const T = { lat: this.tile2lat(y, zoom), lng: this.tile2long(x, zoom) };
     const B = { lat: this.tile2lat(y + 1, zoom), lng: this.tile2long(x + 1, zoom) };
 
@@ -237,11 +257,8 @@ export class MapInterface extends EventTarget {
       [x * 2, y * 2 + 1],
       [x * 2 + 1, y * 2 + 1],
     ]) {
-      const tile = {
-        type: "Feature",
-        geometry: { type: "Polygon", coordinates: this.tileRing(childX, childY, zoom + 1) },
-      };
-      const child = cached.find((feature: any) => compare_features(tile, feature));
+      const tile = tileFeature(this.tileRing(childX, childY, zoom + 1));
+      const child = cached.find((feature) => compare_features(tile, feature));
 
       //Without all four the sum would be short
       if (child?.properties?.count == undefined) return undefined;
@@ -271,19 +288,20 @@ export class MapInterface extends EventTarget {
    * entities already known
    * @returns the entities inside this tile, or undefined if no tile above it was fully fetched
    */
-  private markersOfFetchedTile(x: number, y: number, zoom: number): Array<any> | undefined {
+  private markersOfFetchedTile(
+    x: number,
+    y: number,
+    zoom: number,
+  ): Array<GeoJsonFeature> | undefined {
     const query = JSON.stringify(this.queryOf(zoom));
 
     //Every tile above this one covers it completely
     for (var level = zoom - 1, tileX = x >> 1, tileY = y >> 1; level >= 0; level--) {
       const cached = this.getCached(level).features;
-      const tile = {
-        type: "Feature",
-        geometry: { type: "Polygon", coordinates: this.tileRing(tileX, tileY, level) },
-      };
+      const tile = tileFeature(this.tileRing(tileX, tileY, level));
 
       const fetched = cached.find(
-        (feature: any) => feature.properties?.fetched && compare_features(tile, feature),
+        (feature) => feature.properties?.fetched && compare_features(tile, feature),
       );
 
       if (fetched) {
@@ -292,7 +310,7 @@ export class MapInterface extends EventTarget {
 
         const ring = this.tileRing(x, y, zoom)[0];
         return cached.filter(
-          (feature: any) => feature.properties?.count == undefined && inside(feature, ring),
+          (feature) => feature.properties?.count == undefined && inside(feature, ring),
         );
       }
 
@@ -308,7 +326,10 @@ export class MapInterface extends EventTarget {
    * @param options the options of addEventListener, `once` and `signal` included
    * @returns a function that removes the listener again
    */
-  onChange(listener: (geoJson: any) => void, options?: AddEventListenerOptions): () => void {
+  onChange(
+    listener: (geoJson: FeatureCollection) => void,
+    options?: AddEventListenerOptions,
+  ): () => void {
     const handler = (event: Event) => listener((event as ChangeEvent).geoJson);
 
     this.addEventListener("change", handler, options);
@@ -387,8 +408,8 @@ export class MapInterface extends EventTarget {
     if (this.client) {
       this.client.subscribe(
         [`${this.config.baseUrl.split("/").pop()}/${correctedQuery.entityType}`],
-        function (err: any, granted: any) {
-          if (err) console.error("Failed to subscribe to MQTT updates", err);
+        (error: unknown) => {
+          if (error) console.error("Failed to subscribe to MQTT updates", error);
         },
       );
     }
@@ -424,7 +445,7 @@ export class MapInterface extends EventTarget {
       lng: this.long2tile(boundingBox[2], zoom),
     };
 
-    var promises: any = [];
+    const promises: Array<Promise<void>> = [];
 
     //Iterate all OSM tiles
     for (var x = bottom.lng; x <= top.lng; x++) {
@@ -446,19 +467,10 @@ export class MapInterface extends EventTarget {
         }
 
         //Create a geojson polygon with tbe given coordinates
-        const feature = {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: RING,
-          },
-          properties: {
-            count: 0,
-          },
-        };
+        const feature = tileFeature(RING);
 
         //Check if a polygon is already present
-        const existing = this.getCached(zoom).features.find((feature2: any) => {
+        const existing = this.getCached(zoom).features.find((feature2) => {
           return compare_features(feature, feature2);
         });
 
@@ -476,7 +488,7 @@ export class MapInterface extends EventTarget {
               //Everything inside this tile is already known, neither count nor entities are requested
               if (FETCHED) {
                 feature.properties.count = FETCHED.length;
-                (feature.properties as any).fetched = true;
+                feature.properties.fetched = true;
                 this.addToCache(zoom, feature, false);
                 for (const marker of FETCHED) this.addToCache(zoom, marker);
                 return;
@@ -485,10 +497,10 @@ export class MapInterface extends EventTarget {
               //Check if clustering is enabled
               if (this.clusterEnabled && CACHEDCOUNT == undefined) {
                 //Get count for the polygon
-                var data: any;
+                var data: StaResponse | undefined;
                 try {
                   data = await this.api.getGeoJson(QUERYCOPY);
-                } catch (e) {
+                } catch {
                   try {
                     //Retry on error
                     data = await this.api.getGeoJson(QUERYCOPY);
@@ -511,10 +523,10 @@ export class MapInterface extends EventTarget {
               }
 
               //Load this polygon's markers right away, instead of waiting for the other polygons
-              if (feature.properties.count < this.clusterMin || !this.clusterEnabled) {
-                await this.getMarkers([feature.geometry.coordinates], zoom);
+              if ((feature.properties.count ?? 0) < this.clusterMin || !this.clusterEnabled) {
+                await this.getMarkers([RING], zoom);
                 //The count told us this is all of them, so deeper zoom levels can reuse them
-                if (this.clusterEnabled) (feature.properties as any).fetched = true;
+                if (this.clusterEnabled) feature.properties.fetched = true;
               }
             })(),
           );
@@ -531,7 +543,7 @@ export class MapInterface extends EventTarget {
    * @param toMarker Array of all coordinates of the polygons the markers to get are in
    * @param zoom current zoom level
    */
-  private async getMarkers(toMarker: any, zoom: number) {
+  private async getMarkers(toMarker: Array<CoordinatesList>, zoom: number) {
     if (toMarker.length != 0) {
       //Remove reference to config.queryObject
       var markerQuery = JSON.parse(JSON.stringify(this.getQuery(zoom)));
@@ -621,12 +633,12 @@ export class MapInterface extends EventTarget {
         query.filter += polygonToFilter(cord, query.entityType);
         //Get data
         promises.push(
-          new Promise<void>(async (resolve) => {
-            var markers: any;
+          (async () => {
+            var markers: StaResponse | undefined;
 
             try {
               markers = await this.api.getGeoJson(query);
-            } catch (e) {
+            } catch {
               try {
                 //Retry on error
                 markers = await this.api.getGeoJson(query);
@@ -634,54 +646,53 @@ export class MapInterface extends EventTarget {
                 console.error("Failed to fetch data", e);
               }
             }
+            if (!markers) return;
 
-            markers.value.forEach((marker: any) => {
-              //Get the geoJson of the marker
-              var geoJson: any;
-              //Check for the entityType
-              if (markerQuery.entityType == "Things") geoJson = marker.Locations[0].location;
-              else geoJson = marker.feature;
+            markers.value.forEach((marker: Entity) => {
+              //Get the geoJson of the marker, check for the entityType
+              const location =
+                markerQuery.entityType == "Things"
+                  ? (marker.Locations as Array<{ location: Geometry }>)[0].location
+                  : (marker.feature as Geometry);
 
               //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties
-              if (geoJson.type != "Feature") {
-                geoJson = {
-                  type: "Feature",
-                  geometry: geoJson,
-                  properties: geoJson.properties,
-                };
-              }
+              const geoJson: GeoJsonFeature =
+                location.type == "Feature"
+                  ? (location as unknown as GeoJsonFeature)
+                  : { type: "Feature", geometry: location, properties: {} };
 
               //Delete the Locations, so they are not in the geojson's properties
               delete marker.Locations;
 
               //Add the properties
-              geoJson.properties = marker;
+              const properties = marker as FeatureProperties;
+              geoJson.properties = properties;
               //add getData object if not present
-              if (!marker.getData) marker.getData = [];
+              if (!properties.getData) properties.getData = [];
 
               //Check for the entityType
               if (markerQuery.entityType == "Things") {
                 //Iterate through the datastreams
-                for (var datastream of marker.Datastreams) {
-                  this.addGetDataCallback(datastream, marker);
+                for (const datastream of marker.Datastreams as Array<Datastream>) {
+                  this.addGetDataCallback(datastream, properties);
                 }
               } else {
                 //Get the datastream of the FeatureOfInterest
-                const DATASTREAM = marker.Observations[0]?.Datastream;
-                this.addGetDataCallback(DATASTREAM, marker);
+                const observations = marker.Observations as Array<{ Datastream?: Datastream }>;
+                this.addGetDataCallback(observations[0]?.Datastream, properties);
               }
 
               //Check if the marker is already in the cache
               if (
-                !this.getCached(zoom).features.some((feature: any) => {
+                !this.getCached(zoom).features.some((feature) => {
                   return compare_features(geoJson, feature);
                 })
               ) {
                 this.addToCache(zoom, geoJson);
               }
             });
-            resolve();
-          }),
+            return;
+          })(),
         );
       }
 
@@ -695,16 +706,16 @@ export class MapInterface extends EventTarget {
    * @param datastream Datastream to create the function for
    * @param marker GeoJson of the marker
    */
-  private addGetDataCallback(datastream: any, marker: any) {
+  private addGetDataCallback(datastream: Datastream | undefined, marker: FeatureProperties) {
     if (datastream) {
       //Get the id
       const id = datastream["@iot.id"];
       //Get the unit
       const unitOfMeasurement = datastream.unitOfMeasurement;
       //Add the function, with the id as the key
-      marker.getData.push({
-        observedProperty: datastream.ObservedProperty.name,
-        getData: async (configureQuery: Function) => {
+      marker.getData!.push({
+        observedProperty: datastream.ObservedProperty?.name ?? "",
+        getData: async (configureQuery: (query: QueryObject) => QueryObject) => {
           //Add query
           var datastreamQuery = {
             entityType: "Datastreams",
@@ -715,7 +726,7 @@ export class MapInterface extends EventTarget {
           datastreamQuery = configureQuery(datastreamQuery);
 
           //Get the data
-          const data = await this.api.getGeoJson(datastreamQuery);
+          const data: ObservationData = await this.api.getGeoJson<DataArray>(datastreamQuery);
           //Add unit to the data object
           data.unitOfMeasurement = unitOfMeasurement;
           return data;
@@ -728,7 +739,7 @@ export class MapInterface extends EventTarget {
    * Get all cached geojson's in a featureCollection and delete all expired geojson's
    * @param zoom Current zoom level
    */
-  getCached(zoom: number) {
+  getCached(zoom: number): FeatureCollection {
     if (this.config.cachingDuration) {
       const cachingDuration = this.config.cachingDuration;
       this.cache = this.cache.filter((cache: CacheObject) => {
@@ -740,7 +751,7 @@ export class MapInterface extends EventTarget {
         return date > new Date();
       });
     }
-    var toReturn: any = {
+    const toReturn: FeatureCollection = {
       type: "FeatureCollection",
       features: [],
       zoom,
@@ -760,8 +771,8 @@ export class MapInterface extends EventTarget {
    * @param geoJson GeoJson to add
    * @param emitEvent Flag if a change event should be emitted
    */
-  addToCache(zoom: number, geoJson: object, emitEvent: boolean = true) {
-    this.cache.push({ geoJson, zoom, timestamp: new Date() } as CacheObject);
+  addToCache(zoom: number, geoJson: GeoJsonFeature, emitEvent: boolean = true) {
+    this.cache.push({ geoJson, zoom, timestamp: new Date() });
     if (emitEvent) this.emitChange(zoom);
   }
 
@@ -770,9 +781,9 @@ export class MapInterface extends EventTarget {
    * @param zoom Current zoom leel
    */
   private emitChange(zoom: number) {
-    var toReturn: any = this.getCached(zoom);
+    const toReturn = this.getCached(zoom);
     //Remove cluster that should not be displayed, but still cached
-    toReturn.features = this.getCached(zoom).features.filter((feature: any) => {
+    toReturn.features = toReturn.features.filter((feature) => {
       //Check if count is present, if not return the value
       if (feature.properties?.count == undefined) return true;
 
@@ -780,7 +791,7 @@ export class MapInterface extends EventTarget {
       if (!this.clusterEnabled) return feature.properties?.count == undefined;
 
       //Return only the polygons with a higher count as specified
-      return feature.properties?.count >= this.clusterMin;
+      return (feature.properties?.count ?? 0) >= this.clusterMin;
     });
     this.dispatchEvent(new ChangeEvent(toReturn));
   }
@@ -793,11 +804,35 @@ export class MapInterface extends EventTarget {
  * @returns true if the features are the same
  */
 /**
+ * A tile of the map as a geojson polygon
+ */
+function tileFeature(ring: CoordinatesList): GeoJsonFeature {
+  return {
+    type: "Feature",
+    geometry: { type: "Polygon", coordinates: ring },
+    properties: { count: 0 },
+  };
+}
+
+/**
+ * Every number of a geometry, whatever nesting its type brings with it
+ */
+function positions(coordinates: Coordinates): Array<number> {
+  const flat: Array<number> = [];
+
+  for (const value of coordinates) {
+    if (typeof value == "number") flat.push(value);
+    else flat.push(...positions(value));
+  }
+  return flat;
+}
+
+/**
  * Whether a feature sits inside the ring of a tile. Locations are points, so their first
  * coordinate is the one to look at
  */
-function inside(feature: any, ring: Array<Array<number>>): boolean {
-  const [lng, lat] = feature.geometry?.coordinates?.flat(3) ?? [];
+function inside(feature: GeoJsonFeature, ring: Array<Array<number>>): boolean {
+  const [lng, lat] = positions(feature.geometry?.coordinates ?? []);
   if (lng == undefined || lat == undefined) return false;
 
   const lngs = ring.map((coordinate) => coordinate[0]);
@@ -811,18 +846,24 @@ function inside(feature: any, ring: Array<Array<number>>): boolean {
   );
 }
 
-function compare_features(f1: any, f2: any): boolean {
+function compare_features(f1: GeoJsonFeature | Geometry, f2: GeoJsonFeature | Geometry): boolean {
   //Check if the type is the same
   if (f1.type != f2.type) return false;
 
-  if (f1.properties?.["@iot.id"] || f2.properties?.["@iot.id"])
-    return f1.properties?.["@iot.id"] == f2.properties?.["@iot.id"];
+  const id1 = "properties" in f1 ? f1.properties?.["@iot.id"] : undefined;
+  const id2 = "properties" in f2 ? f2.properties?.["@iot.id"] : undefined;
+  if (id1 || id2) return id1 == id2;
 
-  //If feature is a point, the coordinates can be compared directly
-  if (f1.coordinates) return polygon_compare(f1.coordinates, f2.coordinates);
+  //If feature is a point, the coordinates can be compared directly, if it is a polygon or
+  //something else, the coordinates need to be gotten from the geometry object
+  return polygon_compare(coordinatesOf(f1), coordinatesOf(f2));
+}
 
-  //If it is a polygon or something else, the coordinates need to be gotten from the geometry object
-  return polygon_compare(f1.geometry.coordinates, f2.geometry.coordinates);
+/**
+ * The coordinates of a feature or of a bare geometry
+ */
+function coordinatesOf(feature: GeoJsonFeature | Geometry): Coordinates {
+  return "coordinates" in feature ? feature.coordinates : feature.geometry.coordinates;
 }
 
 /**
@@ -831,7 +872,7 @@ function compare_features(f1: any, f2: any): boolean {
  * @param a2 Array to be compared
  * @returns true if the same
  */
-function polygon_compare(a1: any, a2: any): boolean {
+function polygon_compare(a1: Coordinates, a2: Coordinates): boolean {
   //return a1.length === a2.length && a1.every(function (value: any, index: number) { return value === a2[index] })
   //return JSON.stringify(a1) === JSON.stringify(a2);
   if (!a2) return false;
@@ -840,11 +881,14 @@ function polygon_compare(a1: any, a2: any): boolean {
   if (a1.length != a2.length) return false;
 
   for (var i = 0, l = a1.length; i < l; i++) {
+    const left = a1[i];
+    const right = a2[i];
+
     // Check if we have nested arrays
-    if (a1[i] instanceof Array && a2[i] instanceof Array) {
+    if (left instanceof Array && right instanceof Array) {
       // recurse into the nested arrays
-      if (!polygon_compare(a1[i], a2[i])) return false;
-    } else if (a1[i] != a2[i]) {
+      if (!polygon_compare(left, right)) return false;
+    } else if (left != right) {
       // Warning - two different object instances will never be equal: {x:20} != {x:20}
       return false;
     }
@@ -857,19 +901,20 @@ function polygon_compare(a1: any, a2: any): boolean {
  * @param multipolygon polygon or multipolygon to convert
  * @returns valid filter
  */
-function polygonToFilter(multipolygon: any, entityType: string): string {
-  return multipolygon
-    .map((polygon: any) => {
+function polygonToFilter(multipolygon: Coordinates, entityType: string): string {
+  return (multipolygon as Array<Coordinates>)
+    .map((polygon) => {
+      const first = polygon[0];
       //Check if polygon is a multipolygon
-      if (polygon[0][0][0] != undefined) {
-        //Multipolygon
-        polygon = polygon[0];
-      }
+      const ring = (Array.isArray(first) && Array.isArray(first[0]) ? first : polygon) as Array<
+        Array<number>
+      >;
+
       return `geo.intersects(${
         entityType == "Things" ? "Locations/location" : "feature"
-      },geography'POLYGON ((${polygon
-        .map((array: any) => {
-          return array.join(" ");
+      },geography'POLYGON ((${ring
+        .map((position) => {
+          return position.join(" ");
         })
         .join(",")}))')`;
     })
@@ -879,8 +924,14 @@ function polygonToFilter(multipolygon: any, entityType: string): string {
 /**
  * Cached objects
  */
+/** A point in latitude and longitude, as the tile helpers take it */
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 interface CacheObject {
   zoom: number;
   timestamp: Date;
-  geoJson: object;
+  geoJson: GeoJsonFeature;
 }
