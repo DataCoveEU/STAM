@@ -84,6 +84,7 @@ The OpenLayers bundle expects the global `ol` build and the map instance in `con
 | `queryObject`           | A query object or zoom-based array of `{ zoomLevel, query }` entries. Supported entity types are `Things` and `FeaturesOfInterest`.      |
 | `cluster`               | Enables clustering. Defaults to enabled when omitted.                                                                                    |
 | `clusterMin`            | Minimum feature count for a cluster to remain displayed.                                                                                 |
+| `maxMarkersPerTile`     | Entities requested per tile while no count told STAM how many there are. Defaults to 1000.                                               |
 | `cachingDuration`       | Cache lifetime in seconds. A falsy value keeps cached data indefinitely.                                                                 |
 | `plot`                  | Observation range used by the default popup: `{ startDate, offset?, endDate? }`.                                                         |
 | `markerStyle`           | Marker color string or function. Supported colors are `green`, `black`, `blue`, `grey`, `violet`, `orange`, `red`, `yellow`, and `gold`. |

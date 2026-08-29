@@ -171,6 +171,8 @@ export interface Config {
   cluster?: boolean;
   /** Minimum feature count for a cluster to remain displayed. Defaults to `5`. */
   clusterMin?: number;
+  /** Entities requested per tile, while no count told us how many there are. Defaults to `1000`. */
+  maxMarkersPerTile?: number;
   markerStyle?: MarkerStyle;
   clusterStyle?: ClusterStyleOption;
   polygonStyle?: PolygonStyle;
