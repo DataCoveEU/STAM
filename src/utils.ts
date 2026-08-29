@@ -1,8 +1,14 @@
 //@ts-ignore
 import picoModal from "picomodal";
-import type { Config, Path, QueryObject } from "./types";
+import type { Config, GeoJsonFeature, ObservedPropertyData, Path, QueryObject } from "./types";
 
-declare var Plotly: any;
+/** The Plotly browser build, as the consuming page loads it */
+declare var Plotly:
+  | {
+      newPlot(target: string, data: Array<unknown>, layout: unknown, config: unknown): void;
+      purge(target: string): void;
+    }
+  | undefined;
 
 /**
  * Add css to the document
@@ -22,7 +28,7 @@ export function addCss(css: string) {
  * This is necessary due to the behavior of leaflet, to set the background to the border color, if no fill color was set
  * @param configStyle The config to edit
  */
-export function addTransparentBackground(configStyle: Path) {
+export function addTransparentBackground(configStyle: Path | undefined) {
   if (configStyle && !configStyle.fillColor) {
     configStyle.fillColor = "rgba(255,0,0,0.0)";
   }
@@ -33,13 +39,17 @@ export function addTransparentBackground(configStyle: Path) {
  * @param content_element popup content element
  * @param feature GeoJSON feature that was clicked
  */
-export function createDefaultPopup(content_element: HTMLElement, feature: any, config: Config) {
+export function createDefaultPopup(
+  content_element: HTMLElement,
+  feature: GeoJsonFeature,
+  config: Config,
+) {
   content_element.innerHTML = "<h3>" + feature.properties.name + "</h3>";
 
   var list = document.createElement("ul");
 
   //Iterate all ObservedProperties
-  feature.properties.getData.forEach(function (obj: any) {
+  feature.properties.getData?.forEach(function (obj: ObservedPropertyData) {
     //Create new list element
     var li = document.createElement("li");
     li.innerText = obj.observedProperty;
@@ -54,11 +64,11 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
           modalId: "pico-1",
         })
           .beforeClose(function () {
-            Plotly.purge("pico-1");
+            Plotly!.purge("pico-1");
             //Remove pico-1 element from the DOM
             document.getElementById("pico-1")?.remove();
           })
-          .afterShow(async function (modal: any) {
+          .afterShow(async function (modal: { modalElem(): HTMLElement }) {
             //Set overflow to hidden, so no scrollbar is shown
             modal.modalElem().style.overflow = "hidden";
             //Set height to 50%
@@ -109,11 +119,11 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
 
             //SHOW diagram
 
-            var x: any = [];
-            var y: any = [];
+            const x: Array<unknown> = [];
+            const y: Array<unknown> = [];
 
             //Get datastream
-            var Datastream = result.value;
+            const Datastream = result.value;
 
             //Check if data was returned
             if (Datastream.dataArray) {
@@ -122,16 +132,18 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
                 Datastream.dataArray = Datastream.dataArray.reverse();
               }
 
-              Datastream.dataArray.forEach((Observation: any) => {
+              Datastream.dataArray.forEach((Observation) => {
+                const time = String(Observation[1]);
+
                 //Split data if a timespan was entered, and add both to the x array
-                if (Observation[1].indexOf("/") != -1) {
-                  x.push(Observation[1].split("/")[0]);
-                  x.push(Observation[1].split("/")[1]);
+                if (time.indexOf("/") != -1) {
+                  x.push(time.split("/")[0]);
+                  x.push(time.split("/")[1]);
 
                   y.push(Observation[2]);
                 } else {
                   //Time is not a timespan
-                  x.push(Observation[1]);
+                  x.push(time);
                 }
                 y.push(Observation[2]);
               });
@@ -144,7 +156,7 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
               type: "scatter",
             };
 
-            var data: any = [trace1];
+            const data = [trace1];
 
             //Set both axis to autorange and add the unit as a title
             var layout = {
@@ -153,7 +165,7 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
               },
               yaxis: {
                 autorange: true,
-                title: { text: result.unitOfMeasurement.name },
+                title: { text: result.unitOfMeasurement?.name },
               },
               autosize: true,
             };
@@ -162,7 +174,7 @@ export function createDefaultPopup(content_element: HTMLElement, feature: any, c
             loader.remove();
 
             //Add new plot
-            Plotly.newPlot("pico-1", data, layout, { responsive: true });
+            Plotly!.newPlot("pico-1", data, layout, { responsive: true });
           })
           .show();
       };

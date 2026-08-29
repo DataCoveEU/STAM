@@ -1,5 +1,9 @@
 import { MapInterface } from "./MapInterface";
-import type { Config, Path, ClusterStyle } from "./types";
+import type { ClusterStyle, Config, FeatureCollection, GeoJsonFeature, Path } from "./types";
+import type Feature from "ol/Feature.js";
+import type { FeatureLike } from "ol/Feature.js";
+import type { Extent } from "ol/extent.js";
+import type Point from "ol/geom/Point.js";
 import { addCss, createDefaultPopup } from "./utils";
 import type OlMap from "ol/Map";
 import type VectorLayer from "ol/layer/Vector";
@@ -28,7 +32,13 @@ addCss(
   `.ol-popup{position:absolute;min-width:180px;background-color:#fff;-webkit-filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));filter:drop-shadow(0 1px 4px rgba(0, 0, 0, .2));padding:15px;border-radius:10px;border:1px solid #ccc;bottom:40px;left:-50px}.ol-popup:after,.ol-popup:before{top:100%;border:solid transparent;content:" ";height:0;width:0;position:absolute;pointer-events:none}.ol-popup:after{border-top-color:#fff;border-width:10px;left:48px;margin-left:-10px}.ol-popup:before{border-top-color:#ccc;border-width:11px;left:48px;margin-left:-11px}.ol-popup-closer{text-decoration:none;position:absolute;top:2px;right:8px}.ol-popup-closer:after{content:"✖"}`,
 );
 
-var zoom: any;
+var zoom: number;
+
+/** A drawn feature, with what STAM remembers on it */
+type StamFeature = Feature & {
+  _stamKey?: string;
+  _clusterStyleCache?: { style: ClusterStyle };
+};
 
 //Marker image for a color name
 function markerStyle(color: string) {
@@ -49,7 +59,7 @@ class STAM extends ol.layer.Group {
     const olmap = config.map as OlMap;
 
     //Get current zoom level and remove all decimal places
-    zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
+    zoom = Math.round(olmap.getView().getZoom() ?? 0);
 
     var mapInterface = new MapInterface(config);
 
@@ -57,10 +67,10 @@ class STAM extends ol.layer.Group {
     const circleLayer: VectorLayer<VectorSource> = new ol.layer.Vector({ source: circleSource });
 
     //The circle of every drawn cluster, so it can be removed together with its cluster
-    const circles = new Map<string, any>();
+    const circles = new Map<string, Feature>();
 
     //The style a cluster is configured with, cached on the feature
-    const clusterStyleOf = (feature: any): ClusterStyle | undefined => {
+    const clusterStyleOf = (feature: StamFeature): ClusterStyle | undefined => {
       if (typeof config.clusterStyle != "function") return config.clusterStyle;
 
       if (!feature._clusterStyleCache) {
@@ -74,9 +84,10 @@ class STAM extends ol.layer.Group {
     const vectorLayer: VectorLayer<VectorSource> = new ol.layer.Vector({
       source: vectorSource,
       // features,
-      style: function (feature: any) {
+      style: function (featureLike: FeatureLike) {
+        const feature = featureLike as StamFeature;
         //Check the feature type
-        if (feature.getGeometry().getType() == "Point") {
+        if (feature.getGeometry()!.getType() == "Point") {
           //Call the function if present, otherwise use the color name if present. Default is blue
           const color =
             typeof config.markerStyle == "function"
@@ -111,11 +122,11 @@ class STAM extends ol.layer.Group {
     /**
      * Draws the count of a cluster as a circle on the circle layer
      */
-    const addCircle = (key: string, feature: any) => {
+    const addCircle = (key: string, feature: StamFeature) => {
       if (feature.get("count") == undefined) return;
 
       //Get extends of cluster
-      const cords = feature.getGeometry().getExtent();
+      const cords = feature.getGeometry()!.getExtent();
 
       //Calculate middle
       const long = (cords[0] + cords[2]) / 2;
@@ -171,16 +182,16 @@ class STAM extends ol.layer.Group {
     });
 
     //Fetch the geojson
-    const onChange = (geoJson: any) => {
+    const onChange = (geoJson: FeatureCollection) => {
       if (geoJson.zoom != zoom) return;
 
       //Everything the map should show now
-      const incoming = new Map<string, any>();
+      const incoming = new Map<string, GeoJsonFeature>();
       for (const feature of geoJson.features) incoming.set(featureKey(feature), feature);
 
       //Features that are still there stay untouched, the ones that are gone are removed
       for (const feature of vectorSource.getFeatures()) {
-        const key = (feature as any)._stamKey;
+        const key = (feature as StamFeature)._stamKey ?? "";
         if (incoming.delete(key)) continue;
 
         vectorSource.removeFeature(feature);
@@ -194,7 +205,7 @@ class STAM extends ol.layer.Group {
 
       //Only what is left is new, so only that is parsed and drawn
       for (const [key, geoJsonFeature] of incoming) {
-        const feature: any = format.readFeature(geoJsonFeature);
+        const feature = format.readFeature(geoJsonFeature) as StamFeature;
         feature._stamKey = key;
 
         vectorSource.addFeature(feature);
@@ -217,7 +228,7 @@ class STAM extends ol.layer.Group {
     const container = document.getElementById("popup") as HTMLElement,
       content_element = document.getElementById("popup-content") as HTMLElement,
       closer = document.getElementById("popup-closer") as HTMLElement;
-    let initialBounds: any = null;
+    let initialBounds: Extent = [];
 
     //Create overlay for popup
     var overlay = new ol.Overlay({
@@ -227,7 +238,7 @@ class STAM extends ol.layer.Group {
     });
     //Add popup to map
 
-    var selected: any = null;
+    var selected: StamFeature | null = null;
 
     var defaultHighlightStyle = new ol.style.Style({
       fill: new ol.style.Fill({
@@ -239,11 +250,12 @@ class STAM extends ol.layer.Group {
       }),
     });
 
-    var last: any = null;
+    var last: FeatureLike | null = null;
 
-    const onPointerMove = function (this: any, e: any) {
+    const onPointerMove = function (this: OlMap, e: { pixel: Array<number> }) {
       //Get the hovered feature
-      var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
+      var hit = olmap.forEachFeatureAtPixel(e.pixel, function (feature: FeatureLike) {
+        const f = feature as StamFeature;
         //Check if it is a cluster
         if (f.get("count")) {
           //Set last clicked element if not set
@@ -265,7 +277,7 @@ class STAM extends ol.layer.Group {
           if (config.clusterStyle) {
             var clusterStyle =
               typeof config.clusterStyle == "function"
-                ? ((feature: any) => {
+                ? ((feature: StamFeature) => {
                     if (!feature._clusterStyleCache) {
                       feature._clusterStyleCache = {
                         style: config.clusterStyle(olToGeoJSON(feature)),
@@ -311,16 +323,16 @@ class STAM extends ol.layer.Group {
     };
 
     //Map onclick
-    const onClick = function (evt: any) {
+    const onClick = function (evt: { pixel: Array<number> }) {
       //Get the clicked feature
-      var feature = olmap.forEachFeatureAtPixel(evt.pixel, function (feature: any) {
-        return feature;
+      var feature = olmap.forEachFeatureAtPixel(evt.pixel, function (hit: FeatureLike) {
+        return hit as StamFeature;
       });
       //Check if feature was clicked
       if (feature) {
         //Marker was clicked
         if (feature.get("@iot.id") != undefined) {
-          var geometry = feature.getGeometry();
+          var geometry = feature.getGeometry() as Point;
 
           var close = function () {
             if (config.popupClose) {
@@ -368,7 +380,7 @@ class STAM extends ol.layer.Group {
             if (typeof config.clusterClick == "function") {
               config?.clusterClick(olToGeoJSON(feature));
             } else {
-              olmap.getView().fit(feature.getGeometry().getExtent(), {
+              olmap.getView().fit(feature.getGeometry()!.getExtent(), {
                 size: olmap.getSize(),
                 duration: 1000,
               });
@@ -382,7 +394,7 @@ class STAM extends ol.layer.Group {
     const onMoveEnd = function () {
       //Check if zoom level was changed
       if (zoom != olmap.getView().getZoom()) {
-        zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
+        zoom = Math.round(olmap.getView().getZoom() ?? 0);
       }
 
       //always add new layer, because the geojson is cached inside MapInterface.ts
@@ -414,10 +426,10 @@ class STAM extends ol.layer.Group {
     };
 
     //A layer that is not on the map must neither listen to it nor draw on it
-    olmap.getLayers().on("add", (event: any) => {
+    olmap.getLayers().on("add", (event: { element: unknown }) => {
       if (event.element === this) listen();
     });
-    olmap.getLayers().on("remove", (event: any) => {
+    olmap.getLayers().on("remove", (event: { element: unknown }) => {
       if (event.element === this) release();
     });
   }
@@ -431,7 +443,7 @@ export { STAM };
  * @param zoom current zoom level
  * @returns a promise that resolves with an openLayers vectorLayer that contains the geoJson
  */
-function addSTAMLayer(mapInterface: MapInterface, zoom: number, olmap: any) {
+function addSTAMLayer(mapInterface: MapInterface, zoom: number, olmap: OlMap) {
   var bounds;
 
   //Check it the projection is EPSG 4326
@@ -452,7 +464,7 @@ function addSTAMLayer(mapInterface: MapInterface, zoom: number, olmap: any) {
 /**
  * Identifies a feature across updates. Markers keep their id, a cluster its tile and count
  */
-function featureKey(feature: any): string {
+function featureKey(feature: GeoJsonFeature): string {
   const id = feature.properties?.["@iot.id"];
   if (id != undefined) return `${id}`;
 
@@ -467,13 +479,15 @@ function featureKey(feature: any): string {
  * Converts a ol feature to a geoJson
  * @param feature ol feature
  */
-function olToGeoJSON(feature: any): any {
+function olToGeoJSON(feature: FeatureLike): GeoJsonFeature {
+  const geometry = feature.getGeometry() as Point;
+
   return {
-    type: feature.getGeometry().getType(),
+    type: geometry.getType(),
     properties: feature.getProperties(),
     geometry: {
       type: "Point",
-      coordinates: feature.getGeometry().getCoordinates(),
+      coordinates: geometry.getCoordinates(),
     },
   };
 }
@@ -496,7 +510,7 @@ function pathToOl(path: Path | undefined) {
   });
 }
 
-function colorWithAlpha(color: any, alpha: any = 1) {
+function colorWithAlpha(color: string, alpha: number = 1) {
   const [r, g, b] = Array.from(ol.color.asArray(color));
   return ol.color.asString([r, g, b, alpha]);
 }

@@ -230,4 +230,43 @@ describe("MapInterface", () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  describe("defaults", () => {
+    const tiles = async (config: Config, count: number) => {
+      const requests: string[] = [];
+      vi.spyOn(globalThis, "fetch").mockImplementation(async (url: any) => {
+        requests.push(decodeURIComponent(String(url)));
+        return new Response(JSON.stringify({ value: [], "@iot.count": count }));
+      });
+
+      const mapInterface = new MapInterface(config) as any;
+      await mapInterface.loadLayerData(12, boundingBox);
+
+      return {
+        counted: requests.filter((url) => url.includes("$count=true")).length,
+        entities: requests.filter((url) => url.includes("$expand=Datastreams")).length,
+        cached: mapInterface.getCached(12).features,
+      };
+    };
+
+    it("keeps a tile clustered from five features on, without a clusterMin", async () => {
+      const clustered = await tiles(config, 5);
+      expect(clustered.entities).toBe(0);
+      expect(clustered.cached.every((feature: any) => feature.properties.count == 5)).toBe(true);
+    });
+
+    it("resolves a tile below five features into markers, without a clusterMin", async () => {
+      const resolved = await tiles(config, 4);
+      expect(resolved.entities).toBeGreaterThan(0);
+    });
+
+    it("clusters unless the config turns it off", async () => {
+      //Clustering on by default asks for the counts
+      expect((await tiles(config, 5)).counted).toBeGreaterThan(0);
+      //With it off no count is needed, the entities are loaded right away
+      const off = await tiles({ ...config, cluster: false }, 5);
+      expect(off.counted).toBe(0);
+      expect(off.entities).toBeGreaterThan(0);
+    });
+  });
 });

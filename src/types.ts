@@ -36,21 +36,29 @@ export interface Style {
   default: Path;
 }
 
+/** A style handed to a map library, a Path of which every field is optional. */
+export type PathStyle = Partial<Path>;
+
 export type ClusterStyle = {
   circle: Path;
   polygon: Style;
 };
 
+/** Observations of one ObservedProperty, with the unit its datastream is measured in. */
+export interface ObservationData extends StaResponse<DataArray> {
+  unitOfMeasurement?: Datastream["unitOfMeasurement"];
+}
+
 /** Observation getter STAM adds to a marker for every ObservedProperty of its datastreams. */
 export interface ObservedPropertyData {
   observedProperty: string;
-  getData: (configureQuery: (query: QueryObject) => QueryObject) => Promise<any>;
+  getData: (configureQuery: (query: QueryObject) => QueryObject) => Promise<ObservationData>;
 }
 
 /** The SensorThings entity, plus the members STAM adds to it. */
-export interface FeatureProperties {
+export interface FeatureProperties extends Entity {
   //The entity is passed through as returned by the service
-  [key: string]: any;
+  [key: string]: unknown;
   name?: string;
   /** Number of features in the cluster. Present on cluster features only. */
   count?: number;
@@ -60,12 +68,57 @@ export interface FeatureProperties {
   closeMarker?: () => void;
 }
 
+/** A position, or the nesting of them a geometry type brings with it. */
+export type Coordinates = Array<number> | Array<Coordinates>;
+
+/** The rings of a polygon, as polygon filters and tiles use them. */
+export type CoordinatesList = Array<Array<Array<number>>>;
+
+/** A GeoJSON geometry, as the service returns it. */
+export interface Geometry {
+  type: string;
+  coordinates: Coordinates;
+}
+
 /** GeoJSON feature handed to the configuration callbacks. */
 export interface GeoJsonFeature {
   //The OpenLayers bundle reports the geometry type here, the Leaflet bundle "Feature"
   type: string;
-  geometry: { type: string; coordinates: any };
+  geometry: Geometry;
   properties: FeatureProperties;
+}
+
+/** The features of one zoom level, emitted whenever its cached data changed. */
+export interface FeatureCollection {
+  type: "FeatureCollection";
+  features: Array<GeoJsonFeature>;
+  zoom: number;
+}
+
+/** An entity of the SensorThings service, its properties depend on the service. */
+export interface Entity {
+  [key: string]: unknown;
+  "@iot.id"?: number | string;
+  name?: string;
+}
+
+/** A datastream, expanded with the parts the default popup needs. */
+export interface Datastream extends Entity {
+  unitOfMeasurement?: { name?: string; symbol?: string; definition?: string };
+  ObservedProperty?: { name: string };
+}
+
+/** The rows of a `resultFormat=dataArray` query, the pages already merged. */
+export interface DataArray {
+  dataArray: Array<Array<unknown>>;
+  components?: Array<string>;
+}
+
+/** A response of the SensorThings service, its `@iot.nextLink` pages already followed. */
+export interface StaResponse<T = Array<Entity>> {
+  value: T;
+  "@iot.count"?: number;
+  "@iot.nextLink"?: string;
 }
 
 /** Marker color, or a possibly async callback returning one per feature. */
@@ -110,7 +163,7 @@ export interface Config {
   /** Called when a cluster is clicked. Replaces the default zoom-to-cluster behavior. */
   clusterClick?: (feature: GeoJsonFeature) => void;
   /** The OpenLayers map instance. Required by the OpenLayers bundle, ignored by Leaflet. */
-  map?: any;
+  map?: unknown;
   /** Options passed to `fetch` for every SensorThings request. */
   fetchOptions?: RequestInit;
   /** Requests sent per `requestDelay`. Without a delay the requests are not limited. Defaults to `5`. */

@@ -1,12 +1,25 @@
+import type { FeatureCollection, GeoJsonFeature } from "../types";
+
+/** A layer the plugin created for a feature */
+type FeatureLayer = L.Layer & {
+  setLatLng?: (latlng: L.LatLng) => void;
+  setLatLngs?: (latlngs: unknown) => void;
+  setStyle?: (style: unknown) => void;
+  feature?: GeoJsonFeature;
+};
+
+/** What the plugin hands to its update event */
+type FeatureMap = Record<string, GeoJsonFeature>;
+
 if (typeof L !== "undefined") {
   L.Realtime = L.Layer.extend({
     options: {
       start: true,
       interval: 60 * 1000,
-      getFeatureId: function (f: any) {
+      getFeatureId: function (f: GeoJsonFeature) {
         return f.properties.id;
       },
-      updateFeature: function (feature: any, oldLayer: any) {
+      updateFeature: function (feature: GeoJsonFeature, oldLayer: FeatureLayer | undefined) {
         if (!oldLayer) {
           return;
         }
@@ -15,17 +28,19 @@ if (typeof L !== "undefined") {
         const coordinates = feature.geometry && feature.geometry.coordinates;
         switch (type) {
           case "Point":
-            oldLayer.setLatLng(L.GeoJSON.coordsToLatLng(coordinates));
+            oldLayer.setLatLng!(L.GeoJSON.coordsToLatLng(coordinates as [number, number]));
             break;
           case "LineString":
           case "MultiLineString":
-            oldLayer.setLatLngs(
-              L.GeoJSON.coordsToLatLngs(coordinates, type === "LineString" ? 0 : 1),
+            oldLayer.setLatLngs!(
+              L.GeoJSON.coordsToLatLngs(coordinates as Array<any>, type === "LineString" ? 0 : 1),
             );
             break;
           case "Polygon":
           case "MultiPolygon":
-            oldLayer.setLatLngs(L.GeoJSON.coordsToLatLngs(coordinates, type === "Polygon" ? 1 : 2));
+            oldLayer.setLatLngs!(
+              L.GeoJSON.coordsToLatLngs(coordinates as Array<any>, type === "Polygon" ? 1 : 2),
+            );
             break;
           default:
             return null;
@@ -89,7 +104,7 @@ if (typeof L !== "undefined") {
       }
     },
 
-    update: function (geojson: any) {
+    update: function (geojson?: FeatureCollection) {
       const requestCount = ++this._requestCount,
         checkRequestCount = L.bind(function (this: any, cb: any) {
           return L.bind(function (this: any) {
@@ -114,17 +129,17 @@ if (typeof L !== "undefined") {
       return this;
     },
 
-    remove: function (geojson: any) {
+    remove: function (geojson?: FeatureCollection | GeoJsonFeature | Array<GeoJsonFeature>) {
       if (typeof geojson === "undefined") {
         return L.Layer.prototype.remove.call(this);
       }
 
-      const features = L.Util.isArray(geojson)
+      const features: Array<GeoJsonFeature> = Array.isArray(geojson)
           ? geojson
-          : geojson.features
+          : "features" in geojson
             ? geojson.features
             : [geojson],
-        exit: any = {};
+        exit: FeatureMap = {};
       let i, len, fId;
 
       for (i = 0, len = features.length; i < len; i++) {
@@ -145,11 +160,11 @@ if (typeof L !== "undefined") {
       return this;
     },
 
-    getLayer: function (featureId: any) {
+    getLayer: function (featureId: string | number) {
       return this._featureLayers[featureId];
     },
 
-    getFeature: function (featureId: any) {
+    getFeature: function (featureId: string | number) {
       return this._features[featureId];
     },
 
@@ -162,14 +177,14 @@ if (typeof L !== "undefined") {
       throw new Error("Container has no getBounds method");
     },
 
-    onAdd: function (map: any) {
+    onAdd: function (map: L.Map) {
       map.addLayer(this._container);
       if (this.options.start) {
         this.start();
       }
     },
 
-    onRemove: function (map: any) {
+    onRemove: function (map: L.Map) {
       if (this.options.onlyRunWhenAdded) {
         this.stop();
       }
@@ -177,15 +192,15 @@ if (typeof L !== "undefined") {
       map.removeLayer(this._container);
     },
 
-    _onNewData: function (removeMissing: boolean, geojson: any) {
-      const layersToRemove: any[] = [],
-        enter: any = {},
-        update: any = {},
-        seenFeatures: any = {};
+    _onNewData: function (removeMissing: boolean, geojson: FeatureCollection) {
+      const layersToRemove: Array<FeatureLayer> = [],
+        enter: FeatureMap = {},
+        update: FeatureMap = {},
+        seenFeatures: FeatureMap = {};
       let i,
         len,
         feature,
-        exit: any = {};
+        exit: FeatureMap = {};
 
       const handleData = L.bind(function (this: any, geojson: any) {
         const features = L.Util.isArray(geojson) ? geojson : geojson.features;
@@ -266,7 +281,7 @@ if (typeof L !== "undefined") {
       });
     },
 
-    _onError: function (err: any, msg: any) {
+    _onError: function (err: unknown, msg: string) {
       if (this.options.logErrors) {
         console.warn(err, msg);
       }
@@ -277,9 +292,9 @@ if (typeof L !== "undefined") {
       });
     },
 
-    _removeUnknown: function (known: any) {
+    _removeUnknown: function (known: FeatureMap) {
       let fId,
-        removed: any = {};
+        removed: FeatureMap = {};
       for (fId in this._featureLayers) {
         if (!known[fId]) {
           this._container.removeLayer(this._featureLayers[fId]);
@@ -296,7 +311,10 @@ if (typeof L !== "undefined") {
       return url + L.Util.getParamString({ _: new Date().getTime() }, url);
     },
 
-    _defaultSource: function (responseHandler: any, errorHandler: any) {
+    _defaultSource: function (
+      responseHandler: (data: FeatureCollection) => void,
+      errorHandler: (error: unknown) => void,
+    ) {
       const fetchOptions = this._fetchOptions;
       let url = fetchOptions.url;
 
@@ -311,7 +329,7 @@ if (typeof L !== "undefined") {
     },
   });
 
-  L.realtime = function (src: any, options: any) {
+  L.realtime = function (src, options) {
     return new L.Realtime(src, options);
   };
 }

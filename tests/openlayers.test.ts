@@ -50,6 +50,7 @@ const stamLayers = (map: Map) => {
 
   return {
     circles: group.getLayers().getArray()[0].getSource(),
+    layer: group.getLayers().getArray()[1],
     features: group.getLayers().getArray()[1].getSource(),
   };
 };
@@ -202,6 +203,45 @@ describe("openlayers", () => {
 
       await move(map, stamLayers(map).features, 2);
       expect(stamLayers(map).features.getFeatures().length).toBe(2);
+    });
+  });
+
+  describe("markerStyle", () => {
+    /**
+     * The icon a marker is drawn with, the style function is what the layer renders through
+     */
+    const iconOf = (marker: any, layer: any) =>
+      (marker.getStyle() ?? layer.getStyle()(marker, 1)).getImage().getSrc();
+
+    const withStyle = async (markerStyle: Config["markerStyle"]) => {
+      map.removeLayer(stam);
+      stam = new STAM({ ...config, markerStyle, map });
+      map.addLayer(stam);
+
+      const { features, layer } = stamLayers(map);
+      await move(map, features, 2);
+      return { marker: features.getFeatures()[0], layer };
+    };
+
+    it("takes the color a style function returns", async () => {
+      const { marker, layer } = await withStyle(() => "violet");
+      expect(iconOf(marker, layer)).toContain("marker-icon-2x-violet");
+    });
+
+    it("takes the color a style function resolves to", async () => {
+      const { marker, layer } = await withStyle(async () => "gold");
+
+      //Drawing the marker starts the request for its color, and draws nothing yet
+      expect(layer.getStyle()(marker, 1)).toBe(undefined);
+
+      //The color arrives after that, so the style is set on the feature itself
+      await vi.waitFor(() => expect(marker.getStyle()).not.toBe(null));
+      expect(marker.getStyle().getImage().getSrc()).toContain("marker-icon-2x-gold");
+    });
+
+    it("takes a plain color string", async () => {
+      const { marker, layer } = await withStyle("red");
+      expect(iconOf(marker, layer)).toContain("marker-icon-2x-red");
     });
   });
 });

@@ -47,7 +47,7 @@ export class QueryGenerator {
       if (key == "expand") {
         prefix.push(
           `$expand=${this.queryObject
-            .expand!.map<String>((queryObject) => {
+            .expand!.map<string>((queryObject) => {
               return new QueryGenerator(queryObject, this.config).toString(false);
             })
             .join(",")}`,

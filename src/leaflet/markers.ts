@@ -12,7 +12,7 @@ const violetIconUrl = assetUrl("marker-icon-2x-violet.png");
 const yellowIconUrl = assetUrl("marker-icon-2x-yellow.png");
 const shadowUrl = assetUrl("marker-shadow.png");
 
-let colorMarkers: any = null;
+let colorMarkers: Record<string, L.Icon> | null = null;
 
 if (typeof L != "undefined") {
   colorMarkers = {
@@ -92,6 +92,9 @@ if (typeof L != "undefined") {
 }
 
 export function textToMarker(color: string) {
+  //Without leaflet on the page there are no icons to pick from
+  if (!colorMarkers) return new L.Icon.Default();
+
   switch (color) {
     case "green":
       return colorMarkers.greenIcon;
