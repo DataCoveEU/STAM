@@ -1,0 +1,6 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "sortPackageJson": false,
+  "ignorePatterns": ["dist", "node_modules", "pnpm-lock.yaml", "src/leaflet/markers/*.png"]
+}
