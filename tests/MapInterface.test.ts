@@ -1,6 +1,31 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MapInterface } from "../src/MapInterface.js";
-import type { Config } from "../src/types.js";
+import type { IClientOptions } from "mqtt";
+import type { Config, MqttClient } from "../src/types.js";
+
+//Stands in for the bundled MQTT.js, which the lazy import would otherwise load
+const bundled = vi.hoisted(() => {
+  const connected: Array<[string, IClientOptions | undefined]> = [];
+  const subscribed: Array<Array<string>> = [];
+
+  return {
+    connected,
+    subscribed,
+    connect: (url: string, options?: IClientOptions) => {
+      connected.push([url, options]);
+      //Only the two members STAM uses, the rest of the MQTT.js client is not needed here
+      return {
+        on: () => {},
+        subscribe: (topics: Array<string>, callback: (error: unknown) => void) => {
+          subscribed.push(topics);
+          callback(undefined);
+        },
+      };
+    },
+  };
+});
+
+vi.mock("mqtt", () => ({ default: { connect: bundled.connect } }));
 
 const config: Config = {
   baseUrl: "https://sensor.example/v1.1",
@@ -14,6 +39,8 @@ const boundingBox = [7.3, 50.3, 7.2, 50.2];
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  bundled.connected.length = 0;
+  bundled.subscribed.length = 0;
 });
 
 describe("MapInterface", () => {
@@ -267,6 +294,129 @@ describe("MapInterface", () => {
       const off = await tiles({ ...config, cluster: false }, 5);
       expect(off.counted).toBe(0);
       expect(off.entities).toBeGreaterThan(0);
+    });
+  });
+  describe("mqtt", () => {
+    //A client recording what it was connected and subscribed to
+    const client = () => {
+      const connected: Array<[string, IClientOptions | undefined]> = [];
+      const subscribed: Array<Array<string>> = [];
+      //Only the two members STAM uses, the rest of the MQTT.js client is not needed here
+      const client = {
+        on: () => {},
+        subscribe: (topics: Array<string>, callback: (error: unknown) => void) => {
+          subscribed.push(topics);
+          callback(undefined);
+        },
+      } as unknown as MqttClient;
+
+      return {
+        connected,
+        subscribed,
+        connect: (url: string, options?: IClientOptions) => {
+          connected.push([url, options]);
+          return client;
+        },
+      };
+    };
+
+    //Loads a tile and waits for the subscription, which does not hold the data back
+    const load = async (mqtt: Config["mqtt"], baseUrl = config.baseUrl) => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ value: [], "@iot.count": 0 })),
+      );
+
+      const mapInterface = new MapInterface({ ...config, baseUrl, mqtt }) as any;
+      await mapInterface.loadLayerData(12, boundingBox);
+      await mapInterface.mqttReady;
+
+      return mapInterface;
+    };
+
+    const subscribe = async (mqtt: Config["mqtt"], baseUrl = config.baseUrl) => {
+      const mock = client();
+      const options = mqtt === true ? { client: mock.connect } : { ...mqtt, client: mock.connect };
+
+      await load(options, baseUrl);
+      await vi.waitFor(() => expect(mock.subscribed.length).toBe(1));
+
+      return mock;
+    };
+
+    it("derives the broker url and the topic from the base url", async () => {
+      const mock = await subscribe(true);
+      expect(mock.connected[0][0]).toBe("wss://sensor.example/mqtt");
+      expect(mock.subscribed[0]).toEqual(["v1.1/Things"]);
+    });
+
+    it("keeps the port of the base url and drops TLS for an http service", async () => {
+      const mock = await subscribe(true, "http://localhost:8080/v1.1");
+      expect(mock.connected[0][0]).toBe("ws://localhost:8080/mqtt");
+    });
+
+    it("connects to the configured url with the given options", async () => {
+      const mock = await subscribe({
+        url: "wss://broker.example:8884/ws",
+        options: { username: "sta", password: "secret" },
+      });
+      expect(mock.connected[0]).toEqual([
+        "wss://broker.example:8884/ws",
+        { username: "sta", password: "secret" },
+      ]);
+    });
+
+    it("subscribes below the configured topic prefix", async () => {
+      const mock = await subscribe({ topicPrefix: "sta/v1.1" });
+      expect(mock.subscribed[0]).toEqual(["sta/v1.1/Things"]);
+    });
+
+    it("subscribes to the configured topics instead of the derived one", async () => {
+      const mock = await subscribe({ topics: ["custom/topic"] });
+      expect(mock.subscribed[0]).toEqual(["custom/topic"]);
+    });
+
+    it("passes the entity type to a topics callback", async () => {
+      const mock = await subscribe({ topics: (entityType) => `v1.1/${entityType}?$select=id` });
+      expect(mock.subscribed[0]).toEqual(["v1.1/Things?$select=id"]);
+    });
+
+    it("uses a connected client as it is, without connecting", async () => {
+      const mock = client();
+      const connected = mock.connect("wss://broker.example/mqtt");
+      mock.connected.length = 0;
+
+      await load({ client: connected });
+      await vi.waitFor(() => expect(mock.subscribed.length).toBe(1));
+
+      expect(mock.connected).toEqual([]);
+      expect(mock.subscribed[0]).toEqual(["v1.1/Things"]);
+    });
+
+    it("falls back to the bundled client, without a client on the page", async () => {
+      const mapInterface = await load(true);
+
+      expect(bundled.connected).toEqual([["wss://sensor.example/mqtt", undefined]]);
+      expect(mapInterface.client).toBeDefined();
+      await vi.waitFor(() => expect(bundled.subscribed[0]).toEqual(["v1.1/Things"]));
+    });
+
+    it("never loads the bundled client unless mqtt is enabled", async () => {
+      await load(undefined);
+
+      expect(bundled.connected).toEqual([]);
+      expect(new MapInterface(config).client).toBeUndefined();
+    });
+
+    it("keeps the map working when the connection fails", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const mapInterface = await load({
+        client: () => {
+          throw new Error("no broker");
+        },
+      });
+
+      expect(mapInterface.client).toBeUndefined();
+      expect(error).toHaveBeenCalled();
     });
   });
 });

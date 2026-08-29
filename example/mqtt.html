@@ -22,7 +22,6 @@
         width: 100%;
       }
     </style>
-    <script src="https://unpkg.com/mqtt@5.15.2/dist/mqtt.min.js"></script>
   </head>
 
   <body>
@@ -40,15 +39,17 @@
       }).addTo(map2);
 
       STAM({
-        //baseUrl: "https://airquality-frost.docker01.ilt-dmz.iosb.fraunhofer.de/v1.1",
-        //baseUrl: "https://sensorthings.brgm-rec.fr/SensorThingsGroundWater/v1.0",
-        //baseUrl: "https://service.datacove.eu/DemographyThings/v1.1",
-        //baseUrl: "https://service.datacove.eu/HydroThings/v1.1",
-        baseUrl: "https://ogc-demo.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
+        baseUrl: "https://airquality-frost.k8s.ilt-dmz.iosb.fraunhofer.de/v1.1",
         markerStyle: function (feature) {
           return "yellow";
         },
+        //Defaults derived from baseUrl, an object configures url, options, topics or the client
         mqtt: true,
+        // mqtt: {
+        //   url: "wss://ogc-demo.k8s.ilt-dmz.iosb.fraunhofer.de/mqtt",
+        //   options: { clientId: "stam-example" },
+        //   topicPrefix: "v1.1",
+        // },
         cluster: false,
         // cachingDuration: 10,
         clusterMin: 5,

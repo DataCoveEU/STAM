@@ -9,21 +9,16 @@ import type {
   FeatureProperties,
   GeoJsonFeature,
   Geometry,
+  MqttConnect,
+  MqttOptions,
   ObservationData,
   QueryObject,
   Range,
   RangeQuery,
   StaResponse,
 } from "./types";
+import type { MqttClient } from "mqtt";
 import { STAInterface } from "./STAInterface";
-
-/** The browser mqtt client, as the consuming page loads it */
-interface MqttClient {
-  on(event: "message", listener: (topic: string, message: { toString(): string }) => void): void;
-  subscribe(topics: Array<string>, callback: (error: unknown) => void): void;
-}
-
-declare var mqtt: { connect(url: string): MqttClient } | undefined;
 
 //Used when the config does not specify a minimum cluster size
 const DEFAULT_CLUSTER_MIN = 5;
@@ -43,8 +38,14 @@ export class ChangeEvent extends Event {
 export class MapInterface extends EventTarget {
   config: Config;
   readonly api: STAInterface;
+  /** The MQTT client, once it is connected. Undefined while MQTT is disabled or still connecting */
   client: MqttClient | undefined;
+  /** Resolves with the connected MQTT client, or with undefined while MQTT is disabled */
+  readonly mqttReady: Promise<MqttClient | undefined>;
   lastZoom: number;
+
+  //The MQTT config, normalized from the `mqtt` shorthand. Undefined while MQTT is disabled
+  private readonly mqttOptions: MqttOptions | undefined;
 
   //Stores the cached geojson
   cache: Array<CacheObject>;
@@ -69,48 +70,117 @@ export class MapInterface extends EventTarget {
     this.api = new STAInterface(config);
 
     //MQTT
-    if (typeof mqtt !== "undefined" && config.mqtt) {
-      var url = new URL(config.baseUrl);
-      //Connect to server
-      this.client = mqtt!.connect(`wss://${url.hostname}/mqtt`);
+    this.mqttOptions = config.mqtt === true ? {} : config.mqtt || undefined;
+    this.mqttReady = this.mqttOptions
+      ? this.startMqtt(this.mqttOptions)
+      : Promise.resolve(undefined);
+  }
 
-      console.log("Connecting to MQTT server at", `wss://${url.hostname}/mqtt`);
-      //Receive updates from server
-      this.client.on(
-        "message",
-        function (this: MapInterface, topic: string, message: { toString(): string }) {
-          console.log("Change", topic, message.toString());
-          // parse message
-          const marker: Entity = JSON.parse(message.toString());
-          //Check for the entityType
-          const location = marker.feature as Geometry;
-
-          //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties
-          const geoJson: GeoJsonFeature =
-            location.type == "Feature"
-              ? (location as unknown as GeoJsonFeature)
-              : { type: "Feature", geometry: location, properties: {} };
-
-          delete marker.Locations;
-
-          //Add the properties
-          geoJson.properties = marker as FeatureProperties;
-
-          //Update items in cache
-          this.cache = this.cache.map((e: CacheObject) => {
-            if (e.geoJson.properties["@iot.id"] == marker["@iot.id"]) {
-              e.geoJson = geoJson;
-              e.timestamp = new Date();
-            }
-
-            return e;
-          });
-
-          //Show on map
-          this.emitChange(this.lastZoom);
-        }.bind(this),
-      );
+  /**
+   * Connects to the broker and listens for updates, without ever rejecting
+   * @param options the MQTT config
+   * @returns the connected client, or undefined when connecting failed
+   */
+  private async startMqtt(options: MqttOptions): Promise<MqttClient | undefined> {
+    var client: MqttClient;
+    try {
+      client = await this.connectMqtt(options);
+    } catch (e) {
+      console.error("Failed to connect to the MQTT broker", e);
+      return undefined;
     }
+
+    //Receive updates from server
+    client.on("message", this.onMqttMessage.bind(this));
+    this.client = client;
+
+    return client;
+  }
+
+  /**
+   * Resolves the MQTT client: the configured one, the page's global, or the bundled one
+   * @param options the MQTT config
+   * @returns the connected client
+   */
+  private async connectMqtt(options: MqttOptions): Promise<MqttClient> {
+    //An already connected client is used as is
+    if (options.client && typeof options.client !== "function") return options.client;
+
+    //The config's factory, then the page's own client, then the bundled one
+    const CONNECT: MqttConnect = options.client ?? (await import("mqtt")).default.connect;
+
+    const BROKER = options.url ?? defaultMqttUrl(this.config.baseUrl);
+    console.log("Connecting to MQTT server at", BROKER);
+
+    return CONNECT(BROKER, options.options);
+  }
+
+  /**
+   * Applies an update the broker published to the cached feature it belongs to
+   * @param topic topic the update was published on
+   * @param message the updated entity
+   */
+  private onMqttMessage(topic: string, message: { toString(): string }) {
+    console.log("Change", topic, message.toString());
+    // parse message
+    const marker: Entity = JSON.parse(message.toString());
+    //Check for the entityType
+    const location = marker.feature as Geometry;
+
+    //Fix the geojson if it is not nested in a feature, because openlayers wouldn't save the properties
+    const geoJson: GeoJsonFeature =
+      location.type == "Feature"
+        ? (location as unknown as GeoJsonFeature)
+        : { type: "Feature", geometry: location, properties: {} };
+
+    delete marker.Locations;
+
+    //Add the properties
+    geoJson.properties = marker as FeatureProperties;
+
+    //Update items in cache
+    this.cache = this.cache.map((e: CacheObject) => {
+      if (e.geoJson.properties["@iot.id"] == marker["@iot.id"]) {
+        e.geoJson = geoJson;
+        e.timestamp = new Date();
+      }
+
+      return e;
+    });
+
+    //Show on map
+    this.emitChange(this.lastZoom);
+  }
+
+  /**
+   * Subscribes to the topics of an entity type, once the client is connected
+   * @param entityType entity type of the current query
+   */
+  private async subscribeMqtt(entityType: string) {
+    const CLIENT = await this.mqttReady;
+    if (!CLIENT) return;
+
+    CLIENT.subscribe(this.mqttTopics(entityType), (error: unknown) => {
+      if (error) console.error("Failed to subscribe to MQTT updates", error);
+    });
+  }
+
+  /**
+   * The topics the given entity type's updates are published on
+   * @param entityType entity type of the current query
+   * @returns topics to subscribe to
+   */
+  private mqttTopics(entityType: string): Array<string> {
+    const TOPICS = this.mqttOptions?.topics;
+
+    //Explicit topics replace the derived ones
+    if (TOPICS) {
+      const RESOLVED = typeof TOPICS === "function" ? TOPICS(entityType) : TOPICS;
+      return typeof RESOLVED === "string" ? [RESOLVED] : RESOLVED;
+    }
+
+    const PREFIX = this.mqttOptions?.topicPrefix ?? defaultTopicPrefix(this.config.baseUrl);
+    return [PREFIX ? `${PREFIX}/${entityType}` : entityType];
   }
 
   /**
@@ -405,14 +475,8 @@ export class MapInterface extends EventTarget {
     //Removing the reference to config.queryObject
     var correctedQuery: QueryObject = JSON.parse(JSON.stringify(this.getQuery(zoom)));
 
-    if (this.client) {
-      this.client.subscribe(
-        [`${this.config.baseUrl.split("/").pop()}/${correctedQuery.entityType}`],
-        (error: unknown) => {
-          if (error) console.error("Failed to subscribe to MQTT updates", error);
-        },
-      );
-    }
+    //Subscribing waits for the connection, the data is not held back by it
+    if (this.mqttOptions) void this.subscribeMqtt(correctedQuery.entityType);
 
     //Checking if the queried entityType is things
     if (correctedQuery.entityType == "Things") {
@@ -795,6 +859,26 @@ export class MapInterface extends EventTarget {
     });
     this.dispatchEvent(new ChangeEvent(toReturn));
   }
+}
+
+/**
+ * The MQTT endpoint of a SensorThings service, as most deployments expose it
+ * @param baseUrl base URL of the service
+ * @returns websocket URL of the broker
+ */
+function defaultMqttUrl(baseUrl: string): string {
+  const SERVICE = new URL(baseUrl);
+  //A service reachable over http is served by a broker without TLS as well
+  return `${SERVICE.protocol == "http:" ? "ws" : "wss"}://${SERVICE.host}/mqtt`;
+}
+
+/**
+ * The version segment a SensorThings service prefixes its topics with
+ * @param baseUrl base URL of the service
+ * @returns last path segment, e.g. `v1.1`
+ */
+function defaultTopicPrefix(baseUrl: string): string {
+  return new URL(baseUrl).pathname.split("/").filter(Boolean).pop() ?? "";
 }
 
 /**
