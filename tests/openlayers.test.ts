@@ -72,6 +72,7 @@ describe("openlayers", () => {
   let STAM: any;
   let map: Map;
   let service: any;
+  let stam: any;
 
   beforeEach(async () => {
     service = mockService();
@@ -82,7 +83,8 @@ describe("openlayers", () => {
       view: new View({ center: [808701.59, 6493626.85], zoom: 8 }),
     });
     map.setSize([800, 600]);
-    map.addLayer(new STAM({ ...config, map }));
+    stam = new STAM({ ...config, map });
+    map.addLayer(stam);
   });
 
   afterEach(() => {
@@ -174,6 +176,32 @@ describe("openlayers", () => {
       await new Promise((resolve) => setTimeout(resolve, 1100));
       await moveAgain(expiring);
       expect(service.mock.calls.length).toBeGreaterThan(requested);
+    });
+  });
+
+  describe("teardown", () => {
+    it("stops listening and drawing once the layer is removed", async () => {
+      const { features } = stamLayers(map);
+      await move(map, features, 2);
+      const requested = service.mock.calls.length;
+
+      map.removeLayer(stam);
+      //Its own layers are off the map as well
+      expect(map.getLayers().getArray()).toEqual([]);
+
+      //The map still moves, but the removed layer must not react to it any more
+      await moveAgain(map);
+      expect(service.mock.calls.length).toBe(requested);
+    });
+
+    it("works again after it was added back", async () => {
+      await move(map, stamLayers(map).features, 2);
+
+      map.removeLayer(stam);
+      map.addLayer(stam);
+
+      await move(map, stamLayers(map).features, 2);
+      expect(stamLayers(map).features.getFeatures().length).toBe(2);
     });
   });
 });
