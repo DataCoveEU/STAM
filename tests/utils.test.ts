@@ -55,9 +55,22 @@ describe("createDefaultPopup", () => {
 describe("the plot of the default popup", () => {
   //The plotly build the consuming page loads
   const plotly = () => {
-    const newPlot = vi.fn();
-    (globalThis as any).Plotly = { newPlot, purge: vi.fn() };
-    return newPlot;
+    const listeners: Record<string, (event: any) => void> = {};
+    const newPlot = vi.fn((target: string, ..._rest: Array<any>) => {
+      //Plotly turns the element into a graph div that reports pan and zoom
+      const plot = document.getElementById(target) as any;
+      if (plot) {
+        plot.on = (event: string, listener: (event: any) => void) => (listeners[event] = listener);
+      }
+    });
+    (globalThis as any).Plotly = {
+      newPlot,
+      extendTraces: vi.fn(),
+      prependTraces: vi.fn(),
+      relayout: vi.fn(),
+      purge: vi.fn(),
+    };
+    return Object.assign(newPlot, { listeners });
   };
 
   //Opens the plot of the first observed property and waits for it
@@ -75,7 +88,11 @@ describe("the plot of the default popup", () => {
 
   //Rows as a dataArray query answers them: id, time, result
   const rows = (count: number) =>
-    Array.from({ length: count }, (_, index) => [index, `2026-01-0${(index % 9) + 1}`, index]);
+    Array.from({ length: count }, (_, index) => [
+      index,
+      `2026-01-0${(index % 9) + 1}T00:00:00Z`,
+      index,
+    ]);
 
   afterEach(() => {
     delete (globalThis as any).Plotly;
@@ -86,25 +103,31 @@ describe("the plot of the default popup", () => {
     const { newPlot } = await open(async () => ({ value: { dataArray: rows(3) } }));
 
     await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
-    expect(newPlot.mock.calls[0][1][0].type).toBe("scatter");
     expect(newPlot.mock.calls[0][1][0].x).toHaveLength(3);
   });
 
-  it("draws a long series with WebGL, so it stays responsive", async () => {
-    const { newPlot } = await open(async () => ({ value: { dataArray: rows(2001) } }));
+  it("draws with WebGL while the limit allows a long series", async () => {
+    const { newPlot } = await open(async () => ({ value: { dataArray: rows(3) } }), {
+      ...config,
+      maxEntities: 5000,
+    });
 
     await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
     expect(newPlot.mock.calls[0][1][0].type).toBe("scattergl");
   });
 
-  it("says so when the limit cut the series off", async () => {
-    const { newPlot } = await open(async () => ({ value: { dataArray: rows(5) } }), {
-      ...config,
-      maxEntities: 5,
-    });
+  it("draws a series that cannot grow long with SVG", async () => {
+    const { newPlot } = await open(async () => ({ value: { dataArray: rows(3) } }));
 
     await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
-    expect(newPlot.mock.calls[0][2].title.text).toBe("First 5 observations");
+    expect(newPlot.mock.calls[0][1][0].type).toBe("scatter");
+  });
+
+  it("plots without a title of its own", async () => {
+    const { newPlot } = await open(async () => ({ value: { dataArray: rows(3) } }));
+
+    await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
+    expect(newPlot.mock.calls[0][2].title).toBeUndefined();
   });
 
   it("plots nothing for a datastream without observations", async () => {
@@ -114,19 +137,92 @@ describe("the plot of the default popup", () => {
     expect(newPlot).not.toHaveBeenCalled();
   });
 
-  it("tells how many observations are loaded already", async () => {
-    var report: LoadOptions["onProgress"];
-    const { modal } = await open(
+  it("draws every page while the rest still loads", async () => {
+    var report: LoadOptions["onPage"];
+    const { newPlot } = await open(
       (_query: (query: QueryObject) => QueryObject, options?: LoadOptions) => {
-        report = options?.onProgress;
+        report = options?.onPage;
         return new Promise(() => {});
       },
     );
 
     await vi.waitFor(() => expect(report).toBeDefined());
-    report!(1500);
+    report!({ dataArray: rows(2) }, 2);
 
-    expect(modal()?.textContent).toContain("1500 observations");
+    //The first page is plotted, the ones after it grow the series
+    expect(newPlot).toHaveBeenCalledTimes(1);
+    expect((globalThis as any).Plotly.extendTraces).not.toHaveBeenCalled();
+
+    report!({ dataArray: rows(3) }, 5);
+
+    expect(newPlot).toHaveBeenCalledTimes(1);
+    expect((globalThis as any).Plotly.extendTraces).toHaveBeenCalledWith(
+      "pico-1",
+      {
+        x: [["2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"]],
+        y: [[0, 1, 2]],
+      },
+      [0],
+    );
+  });
+
+  it("loads the observations of the range it was panned to", async () => {
+    const queries: Array<QueryObject> = [];
+    const { newPlot } = await open(async (configure: (query: QueryObject) => QueryObject) => {
+      const query = configure({ entityType: "Datastreams" } as QueryObject);
+      queries.push(query);
+      //The first answer covers a few days, the panned range answers with a point of its own
+      return {
+        value: {
+          dataArray: queries.length == 1 ? rows(3) : [[9, "2025-12-30T00:00:00Z", 9]],
+        },
+      };
+    });
+
+    await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
+    await newPlot.listeners["plotly_relayout"]({
+      "xaxis.range[0]": "2025-12-01 00:00:00",
+      "xaxis.range[1]": "2026-01-02 00:00:00",
+    });
+
+    //Only the part before the loaded observations is requested
+    expect(queries[1].filter).toBe(
+      "phenomenonTime ge 2025-12-01T00:00:00.000Z and phenomenonTime le 2026-01-01T00:00:00.000Z",
+    );
+    expect((globalThis as any).Plotly.prependTraces).toHaveBeenCalledWith(
+      "pico-1",
+      { x: [["2025-12-30T00:00:00Z"]], y: [[9]] },
+      [0],
+    );
+  });
+
+  it("asks for nothing while the pan stays inside the loaded observations", async () => {
+    var calls = 0;
+    const { newPlot } = await open(async () => {
+      calls++;
+      return { value: { dataArray: rows(3) } };
+    });
+
+    await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
+    await newPlot.listeners["plotly_relayout"]({
+      "xaxis.range[0]": "2026-01-01 12:00:00",
+      "xaxis.range[1]": "2026-01-02 12:00:00",
+    });
+
+    expect(calls).toBe(1);
+  });
+
+  it("keeps the axis reset from loading anything", async () => {
+    var calls = 0;
+    const { newPlot } = await open(async () => {
+      calls++;
+      return { value: { dataArray: rows(3) } };
+    });
+
+    await vi.waitFor(() => expect(newPlot).toHaveBeenCalled());
+    await newPlot.listeners["plotly_relayout"]({ "xaxis.autorange": true });
+
+    expect(calls).toBe(1);
   });
 
   it("shows a failed request instead of spinning on", async () => {
