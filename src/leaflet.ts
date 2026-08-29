@@ -314,14 +314,11 @@ const STAMLayer = L.LayerGroup.extend({
           ]);
         });
 
-        mapInterface.on(
-          "change",
-          function (this: any, geojson: any) {
-            if (geojson.zoom == zoom) {
-              cache = geojson;
-            }
-          }.bind(this),
-        );
+        mapInterface.onChange((geojson: any) => {
+          if (geojson.zoom == zoom) {
+            cache = geojson;
+          }
+        });
 
         //Called when zoom ended or the map was moved. The geojson layer is removed and a new one added, because the loaded geojson's are cached inside the MapInterface
         map.on("moveend", function () {

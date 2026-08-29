@@ -174,7 +174,7 @@ class STAM extends ol.layer.Group {
     });
 
     //Fetch the geojson
-    mapInterface.on("change", (geoJson: any) => {
+    mapInterface.onChange((geoJson: any) => {
       if (geoJson.zoom != zoom) return;
 
       //Everything the map should show now
