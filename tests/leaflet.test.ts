@@ -85,7 +85,8 @@ describe("leaflet", () => {
     STAM = (await import("../src/leaflet.js")).STAM;
 
     map = createMap();
-    STAM({ ...config, map }).addTo(map);
+    map._stam = STAM({ ...config, map });
+    map._stam.addTo(map);
   });
 
   afterEach(() => {
@@ -145,6 +146,30 @@ describe("leaflet", () => {
       expect(service.mock.calls.length).toBeGreaterThan(requested);
 
       expiring.remove();
+    });
+  });
+
+  describe("teardown", () => {
+    it("stops listening and drawing once the layer is removed", async () => {
+      await move(map, 2);
+      const requested = service.mock.calls.length;
+
+      map.removeLayer(map._stam);
+      expect(markers(map)).toEqual([]);
+
+      //The map still moves, but the removed layer must not react to it any more
+      await moveAgain(map);
+      expect(service.mock.calls.length).toBe(requested);
+    });
+
+    it("works again after it was added back", async () => {
+      await move(map, 2);
+
+      map.removeLayer(map._stam);
+      map._stam.addTo(map);
+
+      await move(map, 2);
+      expect(markers(map).length).toBe(2);
     });
   });
 });

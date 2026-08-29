@@ -165,16 +165,13 @@ class STAM extends ol.layer.Group {
     //Create a layergroup out of the circle layer and GeoJson layer
     const layer = new ol.layer.Group({ layers: [circleLayer, vectorLayer] });
 
-    //Add layer to the map
-    olmap.addLayer(layer);
-
     //Create a geojson format with the current projection
     const format = new ol.format.GeoJSON({
       featureProjection: olmap.getView().getProjection().getCode(),
     });
 
     //Fetch the geojson
-    mapInterface.onChange((geoJson: any) => {
+    const onChange = (geoJson: any) => {
       if (geoJson.zoom != zoom) return;
 
       //Everything the map should show now
@@ -203,7 +200,7 @@ class STAM extends ol.layer.Group {
         vectorSource.addFeature(feature);
         addCircle(key, feature);
       }
-    });
+    };
 
     //If popup is not in the html dom, add it
     if (!document.getElementById("popup")) {
@@ -229,7 +226,6 @@ class STAM extends ol.layer.Group {
       offset: [0, -10],
     });
     //Add popup to map
-    olmap.addOverlay(overlay);
 
     var selected: any = null;
 
@@ -245,7 +241,7 @@ class STAM extends ol.layer.Group {
 
     var last: any = null;
 
-    olmap.on("pointermove", function (this: any, e: any) {
+    const onPointerMove = function (this: any, e: any) {
       //Get the hovered feature
       var hit = olmap.forEachFeatureAtPixel(e.pixel, function (f: any) {
         //Check if it is a cluster
@@ -312,10 +308,10 @@ class STAM extends ol.layer.Group {
         //Remove cursor style
         this.getTargetElement().style.cursor = "";
       }
-    });
+    };
 
     //Map onclick
-    olmap.on("click", function (evt: any) {
+    const onClick = function (evt: any) {
       //Get the clicked feature
       var feature = olmap.forEachFeatureAtPixel(evt.pixel, function (feature: any) {
         return feature;
@@ -380,10 +376,10 @@ class STAM extends ol.layer.Group {
           }
         }
       }
-    });
+    };
 
     //Add listener to moveend, called when moving and zooming;
-    olmap.on("moveend", function () {
+    const onMoveEnd = function () {
       //Check if zoom level was changed
       if (zoom != olmap.getView().getZoom()) {
         zoom = (olmap.getView().getZoom() ?? 0).toFixed(0);
@@ -391,6 +387,38 @@ class STAM extends ol.layer.Group {
 
       //always add new layer, because the geojson is cached inside MapInterface.ts
       addSTAMLayer(mapInterface, zoom, olmap);
+    };
+
+    //Listeners of the running layer, released again when it is taken off the map
+    let unsubscribe: (() => void) | undefined;
+
+    const listen = () => {
+      olmap.addLayer(layer);
+      olmap.addOverlay(overlay);
+
+      unsubscribe = mapInterface.onChange(onChange);
+      olmap.on("pointermove", onPointerMove);
+      olmap.on("click", onClick);
+      olmap.on("moveend", onMoveEnd);
+    };
+
+    const release = () => {
+      olmap.removeLayer(layer);
+      olmap.removeOverlay(overlay);
+
+      unsubscribe?.();
+      unsubscribe = undefined;
+      olmap.un("pointermove", onPointerMove);
+      olmap.un("click", onClick);
+      olmap.un("moveend", onMoveEnd);
+    };
+
+    //A layer that is not on the map must neither listen to it nor draw on it
+    olmap.getLayers().on("add", (event: any) => {
+      if (event.element === this) listen();
+    });
+    olmap.getLayers().on("remove", (event: any) => {
+      if (event.element === this) release();
     });
   }
 }

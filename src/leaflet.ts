@@ -97,6 +97,9 @@ const STAMLayer = L.LayerGroup.extend({
 
     let initialBounds: any = null;
 
+    //Everything the layer registered on the map, released again when it is removed
+    let release: Array<() => void> = [];
+
     //Called when the layer is added to the map
     this.on("add", function (this: any) {
       if (this._map != undefined) {
@@ -270,8 +273,8 @@ const STAMLayer = L.LayerGroup.extend({
         }
 
         //Called when the LayerGroup was added to the map, then the LayerGroup's super class is done initiating
-        map.on("layeradd", function (this: any) {
-          map.off("layeradd");
+        const onLayerAdd = function (this: any) {
+          map.off("layeradd", onLayerAdd);
 
           //Create a geojson layer
           geojsonLayer = L.realtime(
@@ -312,16 +315,11 @@ const STAMLayer = L.LayerGroup.extend({
             bounds._southWest.lng,
             bounds._southWest.lat,
           ]);
-        });
-
-        mapInterface.onChange((geojson: any) => {
-          if (geojson.zoom == zoom) {
-            cache = geojson;
-          }
-        });
+        };
+        map.on("layeradd", onLayerAdd);
 
         //Called when zoom ended or the map was moved. The geojson layer is removed and a new one added, because the loaded geojson's are cached inside the MapInterface
-        map.on("moveend", function () {
+        const onMoveEnd = function () {
           //Update the zoom variable if the zoom was changed
           if (zoom != map.getZoom()) {
             zoom = map.getZoom();
@@ -337,8 +335,31 @@ const STAMLayer = L.LayerGroup.extend({
             bounds._southWest.lng,
             bounds._southWest.lat,
           ]);
-        });
+        };
+        map.on("moveend", onMoveEnd);
+
+        release = [
+          mapInterface.onChange((geojson: any) => {
+            if (geojson.zoom == zoom) {
+              cache = geojson;
+            }
+          }),
+          () => map.off("layeradd", onLayerAdd),
+          () => map.off("moveend", onMoveEnd),
+          () => {
+            //The realtime layer keeps polling until it is stopped
+            geojsonLayer?.stop();
+            if (geojsonLayer) map.removeLayer(geojsonLayer);
+            if (countLayer) map.removeLayer(countLayer);
+          },
+        ];
       }
+    });
+
+    //A layer that is not on the map must neither listen to it nor draw on it
+    this.on("remove", function () {
+      for (const remove of release) remove();
+      release = [];
     });
   },
 }) as any;
