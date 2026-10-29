@@ -61,7 +61,7 @@
     "@types/leaflet": "^1.9.22",
     "all-contributors-cli": "^6.26.1",
     "globals": "^17.11.0",
-    "happy-dom": "^20.11.12",
+    "happy-dom": "^21.0.4",
     "leaflet": "^1.9.4",
     "oxfmt": "^0.65.0",
     "oxlint": "^1.80.0",
